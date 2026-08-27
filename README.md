@@ -1,7 +1,9 @@
 # zero-owner
 
 [zero.estate](https://zero.estate/) に掲載された0円物件を集めて、**衛星写真の地図**に表示する静的サイト。
-GitHub Actions で毎日収集し、GitHub Pages に配信する。
+
+> **現在停止中。** 掲載情報の収集・掲載について zero.estate（０円都市開発合同会社）に
+> 承諾を照会中のため、定期実行と一般公開を止めている。詳しくは「利用条件」を参照。
 
 ## 構成
 
@@ -51,15 +53,22 @@ DOM でタイルを動かす方式（Leaflet）よりパンが軽い。WebGL2 �
 - 絞り込み条件は URL のハッシュに入るので、そのまま共有できる
 - 座標を持たない物件（現在 59 件）は地図に出せないため、件数だけヘッダに表示している
 
-## GitHub Pages への公開
+## 利用条件
 
-1. リポジトリの **Settings → Pages → Source** を **GitHub Actions** にする
-2. `main` への push、または 1 日 1 回（9:00 JST）の cron で
-   [`.github/workflows/main.yml`](.github/workflows/main.yml) が収集・デプロイを行う
-3. 公開先: `https://<ユーザー名>.github.io/zero-owner/`
+zero.estate の利用規約は、**第６条第９号**で「当社の事前の承諾なく、本サービスの情報を
+収集・蓄積する行為」を、**第９条第２項**で「事前の書面による承諾なく、本サービスの
+コンテンツを複製、転載、改変、配布その他の方法で利用」することを禁じている。
+`robots.txt` にも `Disallow: /api/` がある。
 
-`data.json` / `map.json` はリポジトリにコミットしない（CI が push すると手元の作業と衝突するため）。
-デプロイのたびに作り直して Pages の成果物に載せている。
+本リポジトリの収集・掲載はこれに該当するため、承諾を照会中。回答が出るまでの措置として:
+
+- 定期実行（cron）と push トリガーを停止。手動実行のみ
+- GitHub Pages の公開を停止（リポジトリを private 化）
+
+再開するときは [`.github/workflows/main.yml`](.github/workflows/main.yml) のトリガーを戻し、
+Pages を **Settings → Pages → Source: GitHub Actions** で有効にする。
+
+`data.json` / `map.json` はリポジトリにコミットしない（生成物のため）。
 
 ## 注意
 
