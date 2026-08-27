@@ -4,12 +4,14 @@
 
 | 取得元 | 対象 |
 | --- | --- |
-| [みんなの0円物件](https://zero.estate/) | 掲載されている全物件 |
+| [みんなの0円物件](https://zero.estate/) | 掲載されている全物件（**承諾待ちのため取得・掲載とも停止中**） |
 | [フィールドマッチング](https://fieldmatching.klc1809.com/) | 売買価格が `FM_MAX_PRICE`（既定1円）以下の物件 |
 | [負動産の掲示板](https://souzokutochi-kokkokizoku.com/deflug/) | 募集中・商談中・成約済みの全物件 |
+| [NISUMEL](https://ichi-estate.com/) | 掲載物件（サンプル投稿は除く） |
+| [全国０円不動産](https://zenkokuzeroen-fudosan.com/) | 地域ページに載っている全物件 |
 
-> **現在停止中。** 掲載情報の収集・掲載について zero.estate（０円都市開発合同会社）に
-> 承諾を照会中のため、定期実行と一般公開を止めている。詳しくは「利用条件」を参照。
+> **みんなの0円物件（zero.estate）だけ停止中。** 収集・掲載の承諾を照会中のため、
+> CI では取得せず、公開している地図にも載せていない。詳しくは「利用条件」を参照。
 
 ## 構成
 
@@ -17,6 +19,8 @@
 app.ts            CLI と zero.estate の取得・map.json の生成
 fieldmatching.ts  フィールドマッチングの取得
 makedosan.ts      負動産の掲示板の取得（WordPress REST API）
+nisumel.ts        NISUMEL の取得（WordPress REST API）
+zenkokuzeroen.ts  全国０円不動産の取得（地域ページのHTML解析）
 geocode.ts        座標が無い物件を住所から引く（国土地理院API）
 types.ts          地図が読む共通の物件型
 serve.ts          ローカル確認用の静的サーバ
@@ -26,6 +30,8 @@ assets/styles.css 見た目
 data.json         zero.estate の生データ（生成物・コミットしない）
 data-fieldmatching.json  フィールドマッチングの生データ（同上）
 data-makedosan.json      負動産の掲示板の生データ（同上）
+data-nisumel.json        NISUMEL の生データ（同上）
+data-zenkokuzeroen.json  全国０円不動産の生データ（同上）
 geocode-cache.json       住所検索の結果（同上）
 map.json          地図が読む軽量データ（同上）
 ```
@@ -37,6 +43,8 @@ bun app.ts           # zero.estate を取得して map.json を作る
 bun app.ts fetch     # zero.estate から data.json を作る
 bun app.ts fetch-fm  # フィールドマッチングから data-fieldmatching.json を作る
 bun app.ts fetch-md  # 負動産の掲示板から data-makedosan.json を作る
+bun app.ts fetch-ni  # NISUMEL から data-nisumel.json を作る
+bun app.ts fetch-zz  # 全国０円不動産から data-zenkokuzeroen.json を作る
 bun app.ts geocode   # 座標が無い物件の住所を国土地理院APIで引く
 bun app.ts json      # 生データから map.json を作る
 bun run dev          # http://localhost:5173/ で確認
@@ -74,30 +82,25 @@ DOM でタイルを動かす方式（Leaflet）よりパンが軽い。WebGL2 �
 
 ## 利用条件
 
-zero.estate の利用規約は、**第６条第９号**で「当社の事前の承諾なく、本サービスの情報を
-収集・蓄積する行為」を、**第９条第２項**で「事前の書面による承諾なく、本サービスの
-コンテンツを複製、転載、改変、配布その他の方法で利用」することを禁じている。
-`robots.txt` にも `Disallow: /api/` がある。
+取得元ごとに規約を確認した結果。
 
-本リポジトリの収集・掲載はこれに該当するため、承諾を照会中。回答が出るまでの措置として:
+| 取得元 | 収集 | 転載・公開 |
+| --- | --- | --- |
+| みんなの0円物件 | 第6条9号で**事前の承諾が必要** | 第9条2項で**事前の書面による承諾が必要** |
+| フィールドマッチング | 明文の禁止なし（第13条は包括条項のみ） | 明文の禁止なし（第15条は自社制作物に限定） |
+| 負動産の掲示板 | **利用規約が存在しない** | 同左（無断転載禁止の明示も無い） |
+| NISUMEL | **利用規約が存在しない** | 同左 |
+| 全国０円不動産 | 記述なし | サイトポリシーが**出所明示による転載を明示的に許可** |
 
-- 定期実行（cron）と push トリガーを停止。手動実行のみ
-- GitHub Pages の公開を停止（リポジトリを private 化）
+みんなの0円物件は `robots.txt` に `Disallow: /api/` もあり、承諾の回答が出るまで
+**CI では取得しない**（`data.json` を作らなければ `map.json` にも入らない）。
+手元で `bun app.ts fetch` を実行すれば取得できるが、公開する成果物には載せないこと。
 
-再開するときは [`.github/workflows/main.yml`](.github/workflows/main.yml) のトリガーを戻し、
-Pages を **Settings → Pages → Source: GitHub Actions** で有効にする。
+規約が無いことは許諾を意味しないので、みんなの0円物件以外にも順次一報を入れる。
 
-負動産の掲示板（合同会社 負動産の窓口）には**利用規約が存在しない**。
-[取引に関する注意事項](https://souzokutochi-kokkokizoku.com/deflug/disclaimer/)は取引上の
-免責のみで、情報の収集・転載についての定めは無い。`robots.txt` も掲示板を許可している。
-規約が無いことは許諾を意味しないので、こちらも一報を入れる前提で扱う。
-
-フィールドマッチング（株式会社KLC）の[利用規約](https://fieldmatching.klc1809.com/terms)には、
-収集や転載を明示的に禁じる条項は無い（第13条の禁止事項に該当する号が無く、第15条の知的財産権も
-「当社が作成・提供する」ものに限られる）。`robots.txt` も物件ページを許可している。
-とはいえ第13条(28)(32)の包括条項があるので、こちらも一報を入れる前提で扱う。
-
-`data.json` / `map.json` はリポジトリにコミットしない（生成物のため）。
+なお [アキソル](https://akisol.jp/zero-bukken)（422件）は規約で
+「本サービスで知り得た情報を当社の許可なく開示、公開する行為」「二次利用又は複製行為」が
+明確に禁じられているため、取得元に含めない。
 
 ## 注意
 

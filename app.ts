@@ -16,7 +16,19 @@ import {
 	toMapProperties as makedosanToMap,
 	readRaw as readMakedosanRaw,
 } from "./makedosan.ts";
+import {
+	fetchNisumel,
+	addressOf as nisumelAddress,
+	toMapProperties as nisumelToMap,
+	readRaw as readNisumelRaw,
+} from "./nisumel.ts";
 import type { MapProperty } from "./types.ts";
+import {
+	fetchZenkokuZeroen,
+	readRaw as readZenkokuRaw,
+	addressOf as zenkokuAddress,
+	toMapProperties as zenkokuToMap,
+} from "./zenkokuzeroen.ts";
 
 type PropertyImage = {
 	id: number;
@@ -287,15 +299,21 @@ async function generateJson() {
 	const geo = await loadCache();
 
 	const mdPosts = await readMakedosanRaw();
+	const niPosts = await readNisumelRaw();
+	const zzItems = await readZenkokuRaw();
 
 	const zero = zeroEstateToMap(zeroItems, geo);
 	const fm = fieldMatchingToMap(fmItems, geo);
 	const md = makedosanToMap(mdPosts, geo);
+	const ni = nisumelToMap(niPosts, geo);
+	const zz = zenkokuToMap(zzItems, geo);
 
 	const properties = [
 		...zero.properties,
 		...fm.properties,
 		...md.properties,
+		...ni.properties,
+		...zz.properties,
 	].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 
 	const sources = [
@@ -317,6 +335,18 @@ async function generateJson() {
 			url: "https://souzokutochi-kokkokizoku.com/deflug/",
 			count: md.properties.length,
 		},
+		{
+			name: "nisumel",
+			label: "NISUMEL",
+			url: "https://ichi-estate.com/",
+			count: ni.properties.length,
+		},
+		{
+			name: "zenkokuzeroen",
+			label: "全国０円不動産",
+			url: "https://zenkokuzeroen-fudosan.com/",
+			count: zz.properties.length,
+		},
 	].filter((source) => source.count > 0);
 
 	await Bun.write(
@@ -324,7 +354,8 @@ async function generateJson() {
 		JSON.stringify({
 			generatedAt: new Date().toISOString(),
 			total: properties.length,
-			unmapped: zero.unmapped + fm.unmapped + md.unmapped,
+			unmapped:
+				zero.unmapped + fm.unmapped + md.unmapped + ni.unmapped + zz.unmapped,
 			imageBase: IMAGE_BASE,
 			sources,
 			properties,
@@ -334,7 +365,7 @@ async function generateJson() {
 	const approx = properties.filter((p) => p.approx).length;
 	console.log(
 		`map.json 出力完了 (${properties.length} 件 / うち住所から推定 ${approx} 件 / ` +
-			`座標なし ${zero.unmapped + fm.unmapped + md.unmapped} 件` +
+			`座標なし ${zero.unmapped + fm.unmapped + md.unmapped + ni.unmapped + zz.unmapped} 件` +
 			`${fm.filtered ? ` / 価格で除外 ${fm.filtered} 件` : ""})`,
 	);
 	for (const source of sources)
@@ -355,8 +386,12 @@ async function runGeocode() {
 		...(await readFieldMatchingRaw())
 			.filter((item) => !item.lat || !item.lng)
 			.map(fieldMatchingAddress),
-		// 掲示板は住所を伏せているので、全件を住所から引く
+		// 以下は掲載側が座標を持たないので全件を住所から引く
 		...(await readMakedosanRaw()).map(makedosanAddress),
+		...(await readNisumelRaw())
+			.filter((post) => !post.title.rendered.includes("サンプル"))
+			.map(nisumelAddress),
+		...(await readZenkokuRaw()).map(zenkokuAddress),
 	];
 
 	await geocodeMissing(queries);
@@ -406,6 +441,10 @@ if (!command) {
 	await fetchFieldMatching();
 } else if (command === "fetch-md") {
 	await fetchMakedosan();
+} else if (command === "fetch-ni") {
+	await fetchNisumel();
+} else if (command === "fetch-zz") {
+	await fetchZenkokuZeroen();
 } else if (command === "geocode") {
 	await runGeocode();
 } else if (command === "json") {
@@ -424,6 +463,8 @@ if (!command) {
 	console.log(
 		"  bun run app.ts fetch-md  # 負動産の掲示板から data-makedosan.json を作る",
 	);
+	console.log("  bun run app.ts fetch-ni  # NISUMEL から取得する");
+	console.log("  bun run app.ts fetch-zz  # 全国０円不動産 から取得する");
 	console.log(
 		"  bun run app.ts geocode   # 座標が無い物件の住所を国土地理院APIで引く",
 	);

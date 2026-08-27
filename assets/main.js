@@ -112,9 +112,7 @@ function buildStyle() {
 			cluster: true,
 			clusterMaxZoom: 15,
 			clusterRadius: 55,
-			attribution:
-				'物件: <a href="https://zero.estate/" target="_blank" rel="noopener">zero.estate</a>' +
-				' / <a href="https://fieldmatching.klc1809.com/" target="_blank" rel="noopener">フィールドマッチング</a>',
+			// 物件の出典はパネルのフッタに出す（取得元が map.json 次第で変わるため）
 		},
 	};
 
@@ -702,6 +700,14 @@ function buildControls() {
 	$("sort").value = state.sort;
 	$("in-view").checked = state.inView;
 	$("search").value = state.q;
+
+	// 取得元はデータ次第で変わるので、フッタも map.json から組み立てる
+	$("sources-credit").innerHTML = (data.sources ?? [])
+		.map(
+			(source) =>
+				`<a href="${escapeHtml(source.url)}" target="_blank" rel="noopener">${escapeHtml(source.label)}</a>（${source.count.toLocaleString()}件）`,
+		)
+		.join("・");
 
 	const unmapped = data.unmapped
 		? `・座標なし ${data.unmapped} 件は非表示`
