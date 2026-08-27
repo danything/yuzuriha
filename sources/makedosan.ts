@@ -8,8 +8,8 @@
  * 座標も無いので、公開されている大字までの住所を geocode.ts で引いて地図に置く。
  */
 
-import { type GeoCache, normalizeAddress } from "./geocode.ts";
-import type { MapProperty } from "./types.ts";
+import { type GeoCache, normalizeAddress } from "../geocode.ts";
+import type { MapProperty } from "../types.ts";
 
 const BASE = "https://souzokutochi-kokkokizoku.com/deflug";
 const SOURCE = "makedosan";

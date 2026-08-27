@@ -30,16 +30,16 @@ jobs:
       # 1つの取得元が落ちても地図は出せるので、取得の失敗ではジョブを止めない
       - name: Fetch フィールドマッチング
         continue-on-error: true
-        run: bun app.ts fetch-fm
+        run: bun app.ts fetch fm
       - name: Fetch 負動産の掲示板
         continue-on-error: true
-        run: bun app.ts fetch-md
+        run: bun app.ts fetch md
       - name: Fetch NISUMEL
         continue-on-error: true
-        run: bun app.ts fetch-ni
+        run: bun app.ts fetch ni
       - name: Fetch 全国０円不動産
         continue-on-error: true
-        run: bun app.ts fetch-zz
+        run: bun app.ts fetch zz
 
       - name: Geocode missing coordinates
         run: bun app.ts geocode

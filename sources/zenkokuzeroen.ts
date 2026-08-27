@@ -9,8 +9,8 @@
  * 明記している唯一の取得元。
  */
 
-import { type GeoCache, normalizeAddress } from "./geocode.ts";
-import type { MapProperty } from "./types.ts";
+import { type GeoCache, normalizeAddress } from "../geocode.ts";
+import type { MapProperty } from "../types.ts";
 
 const BASE = "https://zenkokuzeroen-fudosan.com";
 const SOURCE = "zenkokuzeroen";

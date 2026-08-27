@@ -6,8 +6,8 @@
  * 座標は無いので geocode.ts で住所から引く。
  */
 
-import { type GeoCache, normalizeAddress } from "./geocode.ts";
-import type { MapProperty } from "./types.ts";
+import { type GeoCache, normalizeAddress } from "../geocode.ts";
+import type { MapProperty } from "../types.ts";
 
 const BASE = "https://ichi-estate.com";
 const SOURCE = "nisumel";
@@ -94,7 +94,7 @@ function titleParts(rendered: string): {
 export function addressOf(post: NisumelPost): string {
 	const { prefecture, city } = titleParts(post.title.rendered);
 	if (!prefecture) return "";
-	const rest = summary(post.content.rendered)["所在地"] ?? "";
+	const rest = summary(post.content.rendered).所在地 ?? "";
 	return normalizeAddress(prefecture, city, rest);
 }
 
@@ -126,7 +126,7 @@ export function toMapProperties(
 
 		const table = summary(post.content.rendered);
 		const { title, prefecture, city } = titleParts(post.title.rendered);
-		const category = table["分類"] ?? "";
+		const category = table.分類 ?? "";
 
 		properties.push({
 			id: `ni:${post.id}`,
@@ -143,14 +143,14 @@ export function toMapProperties(
 			prefecture,
 			city,
 			region: "",
-			address: table["所在地"] ?? "",
+			address: table.所在地 ?? "",
 			lat: hit.lat,
 			lng: hit.lng,
-			price: priceOf(table["価格"] ?? ""),
+			price: priceOf(table.価格 ?? ""),
 			builtYear: null,
 			views: 0,
 			favorites: 0,
-			notes: [table["現況"], table["地目"]].filter(
+			notes: [table.現況, table.地目].filter(
 				(n): n is string => Boolean(n) && n !== "-",
 			),
 			publishedAt: new Date(`${post.date}+09:00`).toISOString(),

@@ -4,7 +4,6 @@
 	"scripts": {
 		"start": "bun app.ts",
 		"fetch": "bun app.ts fetch",
-		"fetch:fm": "bun app.ts fetch-fm",
 		"geocode": "bun app.ts geocode",
 		"json": "bun app.ts json",
 		"dev": "bun serve.ts",

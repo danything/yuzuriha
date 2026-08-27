@@ -9,8 +9,8 @@
  * そこで都道府県で区切り、区切りごとに件数が揃うまで並び順を変えて重ねる。
  */
 
-import { type GeoCache, normalizeAddress } from "./geocode.ts";
-import type { MapProperty } from "./types.ts";
+import { type GeoCache, normalizeAddress } from "../geocode.ts";
+import type { MapProperty } from "../types.ts";
 
 const BASE = "https://fieldmatching.klc1809.com";
 const SEARCH = `${BASE}/api/property/search`;

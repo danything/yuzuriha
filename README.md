@@ -16,39 +16,38 @@
 ## 構成
 
 ```text
-app.ts            CLI と zero.estate の取得・map.json の生成
-fieldmatching.ts  フィールドマッチングの取得
-makedosan.ts      負動産の掲示板の取得（WordPress REST API）
-nisumel.ts        NISUMEL の取得（WordPress REST API）
-zenkokuzeroen.ts  全国０円不動産の取得（地域ページのHTML解析）
+app.ts            CLI と map.json の生成
+sources/          取得元ごとの実装（1ファイル1サイト）
+  index.ts          取得元の一覧。ここに足せば全部の処理に乗る
+  zero-estate.ts    みんなの0円物件
+  fieldmatching.ts  フィールドマッチング
+  makedosan.ts      負動産の掲示板
+  nisumel.ts        NISUMEL
+  zenkokuzeroen.ts  全国０円不動産
 geocode.ts        座標が無い物件を住所から引く（国土地理院API）
 types.ts          地図が読む共通の物件型
 serve.ts          ローカル確認用の静的サーバ
 index.html        地図ページ
 assets/main.js    MapLibre GL の地図・絞り込み・一覧
 assets/styles.css 見た目
-data.json         zero.estate の生データ（生成物・コミットしない）
-data-fieldmatching.json  フィールドマッチングの生データ（同上）
-data-makedosan.json      負動産の掲示板の生データ（同上）
-data-nisumel.json        NISUMEL の生データ（同上）
-data-zenkokuzeroen.json  全国０円不動産の生データ（同上）
-geocode-cache.json       住所検索の結果（同上）
-map.json          地図が読む軽量データ（同上）
+map.json          地図が読む軽量データ（生成物・コミットしない）
+data*.json        取得元ごとの生データ（同上）
+geocode-cache.json 住所検索の結果（同上）
 ```
 
 ## 使い方
 
 ```bash
-bun app.ts           # zero.estate を取得して map.json を作る
-bun app.ts fetch     # zero.estate から data.json を作る
-bun app.ts fetch-fm  # フィールドマッチングから data-fieldmatching.json を作る
-bun app.ts fetch-md  # 負動産の掲示板から data-makedosan.json を作る
-bun app.ts fetch-ni  # NISUMEL から data-nisumel.json を作る
-bun app.ts fetch-zz  # 全国０円不動産から data-zenkokuzeroen.json を作る
-bun app.ts geocode   # 座標が無い物件の住所を国土地理院APIで引く
-bun app.ts json      # 生データから map.json を作る
-bun run dev          # http://localhost:5173/ で確認
+bun app.ts              # 取得 → 住所検索 → map.json
+bun app.ts fetch        # すべての取得元から取得する
+bun app.ts fetch fm     # 1つの取得元だけ（zero / fm / md / ni / zz）
+bun app.ts geocode      # 座標が無い物件の住所を国土地理院APIで引く
+bun app.ts json         # 生データから map.json を作る
+bun run dev             # http://localhost:5173/ で確認
 ```
+
+取得元を足すときは `sources/` にファイルを1つ作り、`sources/index.ts` の
+`SOURCES` に並べる。取得・住所検索・`map.json` への合流はそれだけで通る。
 
 ### 環境変数
 
