@@ -2,8 +2,10 @@ node_modules
 .env
 data.json
 data-fieldmatching.json
+data-ieichiba.json
 data-makedosan.json
 data-nisumel.json
 data-zenkokuzeroen.json
 geocode-cache.json
 map.json
+map.csv

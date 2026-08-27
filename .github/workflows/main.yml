@@ -37,6 +37,9 @@ jobs:
       - name: Fetch NISUMEL
         continue-on-error: true
         run: bun app.ts fetch ni
+      - name: Fetch 家いちば
+        continue-on-error: true
+        run: bun app.ts fetch ie
       - name: Fetch 全国０円不動産
         continue-on-error: true
         run: bun app.ts fetch zz

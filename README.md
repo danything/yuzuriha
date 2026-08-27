@@ -8,6 +8,7 @@
 | [フィールドマッチング](https://fieldmatching.klc1809.com/) | 売買価格が `FM_MAX_PRICE`（既定1円）以下の物件 |
 | [負動産の掲示板](https://souzokutochi-kokkokizoku.com/deflug/) | 募集中・商談中・成約済みの全物件 |
 | [NISUMEL](https://ichi-estate.com/) | 掲載物件（サンプル投稿は除く） |
+| [家いちば](https://ieichiba.com/) | 価格が `IE_MAX_PRICE`（既定0円）以下の物件 |
 | [全国０円不動産](https://zenkokuzeroen-fudosan.com/) | 地域ページに載っている全物件 |
 
 > **みんなの0円物件（zero.estate）だけ停止中。** 収集・掲載の承諾を照会中のため、
@@ -23,6 +24,7 @@ sources/          取得元ごとの実装（1ファイル1サイト）
   fieldmatching.ts  フィールドマッチング
   makedosan.ts      負動産の掲示板
   nisumel.ts        NISUMEL
+  ieichiba.ts       家いちば
   zenkokuzeroen.ts  全国０円不動産
 geocode.ts        座標が無い物件を住所から引く（国土地理院API）
 types.ts          地図が読む共通の物件型
@@ -40,7 +42,7 @@ geocode-cache.json 住所検索の結果（同上）
 ```bash
 bun app.ts              # 取得 → 住所検索 → map.json
 bun app.ts fetch        # すべての取得元から取得する
-bun app.ts fetch fm     # 1つの取得元だけ（zero / fm / md / ni / zz）
+bun app.ts fetch fm     # 1つの取得元だけ（zero / fm / md / ni / ie / zz）
 bun app.ts geocode      # 座標が無い物件の住所を国土地理院APIで引く
 bun app.ts json         # 生データから map.json を作る
 bun run dev             # http://localhost:5173/ で確認
@@ -55,6 +57,7 @@ bun run dev             # http://localhost:5173/ で確認
 | --- | --- |
 | `EMAIL` / `PASSWORD` | zero.estate のログイン情報（zero.estate の取得に必須） |
 | `FM_MAX_PRICE` | フィールドマッチングで地図に載せる価格の上限。既定 `1`（円） |
+| `IE_MAX_PRICE` | 家いちばで地図に載せる価格の上限。既定 `0`（円） |
 | `FETCH_DELAY_MS` | 取得の間隔。既定 `700`（ミリ秒） |
 | `GEOCODE_DELAY_MS` | 住所検索の間隔。既定 `500`（ミリ秒） |
 
@@ -89,6 +92,7 @@ DOM でタイルを動かす方式（Leaflet）よりパンが軽い。WebGL2 �
 | フィールドマッチング | 明文の禁止なし（第13条は包括条項のみ） | 明文の禁止なし（第15条は自社制作物に限定） |
 | 負動産の掲示板 | **利用規約が存在しない** | 同左（無断転載禁止の明示も無い） |
 | NISUMEL | **利用規約が存在しない** | 同左 |
+| 家いちば | **利用規約が存在しない** | 同左 |
 | 全国０円不動産 | 記述なし | サイトポリシーが**出所明示による転載を明示的に許可** |
 
 みんなの0円物件は `robots.txt` に `Disallow: /api/` もあり、承諾の回答が出るまで

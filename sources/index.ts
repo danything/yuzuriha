@@ -5,6 +5,7 @@
 import type { GeoCache } from "../geocode.ts";
 import type { MapProperty } from "../types.ts";
 import * as fieldmatching from "./fieldmatching.ts";
+import * as ieichiba from "./ieichiba.ts";
 import * as makedosan from "./makedosan.ts";
 import * as nisumel from "./nisumel.ts";
 import * as zenkokuzeroen from "./zenkokuzeroen.ts";
@@ -80,6 +81,17 @@ export const SOURCES: AnySource[] = [
 				.filter((post) => !post.title.rendered.includes("サンプル"))
 				.map(nisumel.addressOf),
 		toMapProperties: nisumel.toMapProperties,
+	},
+	{
+		name: "ieichiba",
+		label: "家いちば",
+		url: "https://ieichiba.com/",
+		command: "ie",
+		fetch: ieichiba.fetchIeichiba,
+		readRaw: ieichiba.readRaw,
+		// 詳細ページに座標がある。無いものだけ住所検索に回す
+		addressesOf: ieichiba.addressesOf,
+		toMapProperties: ieichiba.toMapProperties,
 	},
 	{
 		name: "zenkokuzeroen",
