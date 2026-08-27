@@ -33,9 +33,15 @@ jobs:
         run: bun app.ts fetch fm
       - name: Fetch 負動産の掲示板
         continue-on-error: true
+        env:
+          # この2サイトは海外IPから 403 になるため、国内のプロキシを通す
+          HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
         run: bun app.ts fetch md
       - name: Fetch NISUMEL
         continue-on-error: true
+        env:
+          # この2サイトは海外IPから 403 になるため、国内のプロキシを通す
+          HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
         run: bun app.ts fetch ni
       - name: Fetch 家いちば
         continue-on-error: true

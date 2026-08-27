@@ -60,6 +60,7 @@ bun run dev             # http://localhost:5173/ で確認
 | `IE_MAX_PRICE` | 家いちばで地図に載せる価格の上限。既定 `0`（円） |
 | `FETCH_DELAY_MS` | 取得の間隔。既定 `700`（ミリ秒） |
 | `GEOCODE_DELAY_MS` | 住所検索の間隔。既定 `500`（ミリ秒） |
+| `HTTPS_PROXY` | 負動産の掲示板・NISUMEL の取得だけに使う。下記参照 |
 
 ローカルでは `.env` に書けば Bun が読み込む（`.env` は Git 管理外）。
 CI ではリポジトリの **Settings → Secrets and variables → Actions** に同名で登録する。
@@ -81,6 +82,21 @@ DOM でタイルを動かす方式（Leaflet）よりパンが軽い。WebGL2 �
   推定した場合はポップアップに一致した住所を出す（現在 399 件）。
   負動産の掲示板は番地を公開していないため、全件が大字までの推定になる
 - 物件のポップアップと一覧には取得元を表示する
+
+## 国内プロキシ
+
+負動産の掲示板と NISUMEL は、どちらも日本のレンタルサーバで動く WordPress で、
+**海外IPからの `wp-json` へのアクセスを 403 で弾く**。GitHub Actions の Runner は
+海外IPなので、この2つだけ国内のプロキシを経由させる必要がある
+（User-Agent は無関係。手元の日本のIPからは同じUAで 200 が返る）。
+
+`HTTPS_PROXY` に `https://ユーザー:パスワード@ホスト名` を Secret で設定すると、
+該当2ステップだけがそのプロキシを通る。Bun の `fetch` は `https://` 形式の
+プロキシと Basic 認証の両方に対応している。
+
+プロキシ側の構成は [`danything/k3s-gitops`](https://github.com/danything/k3s-gitops) の
+`3proxy/` にある。宛先ACLでこの2ドメインへの CONNECT だけを許可しているので、
+認証情報が漏れても踏み台にはならない。
 
 ## 利用条件
 
