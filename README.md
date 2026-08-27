@@ -6,6 +6,7 @@
 | --- | --- |
 | [みんなの0円物件](https://zero.estate/) | 掲載されている全物件 |
 | [フィールドマッチング](https://fieldmatching.klc1809.com/) | 売買価格が `FM_MAX_PRICE`（既定1円）以下の物件 |
+| [負動産の掲示板](https://souzokutochi-kokkokizoku.com/deflug/) | 募集中・商談中・成約済みの全物件 |
 
 > **現在停止中。** 掲載情報の収集・掲載について zero.estate（０円都市開発合同会社）に
 > 承諾を照会中のため、定期実行と一般公開を止めている。詳しくは「利用条件」を参照。
@@ -15,6 +16,7 @@
 ```text
 app.ts            CLI と zero.estate の取得・map.json の生成
 fieldmatching.ts  フィールドマッチングの取得
+makedosan.ts      負動産の掲示板の取得（WordPress REST API）
 geocode.ts        座標が無い物件を住所から引く（国土地理院API）
 types.ts          地図が読む共通の物件型
 serve.ts          ローカル確認用の静的サーバ
@@ -23,6 +25,7 @@ assets/main.js    MapLibre GL の地図・絞り込み・一覧
 assets/styles.css 見た目
 data.json         zero.estate の生データ（生成物・コミットしない）
 data-fieldmatching.json  フィールドマッチングの生データ（同上）
+data-makedosan.json      負動産の掲示板の生データ（同上）
 geocode-cache.json       住所検索の結果（同上）
 map.json          地図が読む軽量データ（同上）
 ```
@@ -33,6 +36,7 @@ map.json          地図が読む軽量データ（同上）
 bun app.ts           # zero.estate を取得して map.json を作る
 bun app.ts fetch     # zero.estate から data.json を作る
 bun app.ts fetch-fm  # フィールドマッチングから data-fieldmatching.json を作る
+bun app.ts fetch-md  # 負動産の掲示板から data-makedosan.json を作る
 bun app.ts geocode   # 座標が無い物件の住所を国土地理院APIで引く
 bun app.ts json      # 生データから map.json を作る
 bun run dev          # http://localhost:5173/ で確認
@@ -64,7 +68,8 @@ DOM でタイルを動かす方式（Leaflet）よりパンが軽い。WebGL2 �
   新着・閲覧数・お気に入り順の並べ替え、「地図に写っている物件だけ一覧に出す」表示
 - 絞り込み条件は URL のハッシュに入るので、そのまま共有できる
 - 掲載側に座標が無い物件は、住所から国土地理院の住所検索APIで引いて表示する。
-  推定した場合はポップアップに一致した住所を出す（現在 72 件）
+  推定した場合はポップアップに一致した住所を出す（現在 399 件）。
+  負動産の掲示板は番地を公開していないため、全件が大字までの推定になる
 - 物件のポップアップと一覧には取得元を表示する
 
 ## 利用条件
@@ -81,6 +86,11 @@ zero.estate の利用規約は、**第６条第９号**で「当社の事前の�
 
 再開するときは [`.github/workflows/main.yml`](.github/workflows/main.yml) のトリガーを戻し、
 Pages を **Settings → Pages → Source: GitHub Actions** で有効にする。
+
+負動産の掲示板（合同会社 負動産の窓口）には**利用規約が存在しない**。
+[取引に関する注意事項](https://souzokutochi-kokkokizoku.com/deflug/disclaimer/)は取引上の
+免責のみで、情報の収集・転載についての定めは無い。`robots.txt` も掲示板を許可している。
+規約が無いことは許諾を意味しないので、こちらも一報を入れる前提で扱う。
 
 フィールドマッチング（株式会社KLC）の[利用規約](https://fieldmatching.klc1809.com/terms)には、
 収集や転載を明示的に禁じる条項は無い（第13条の禁止事項に該当する号が無く、第15条の知的財産権も

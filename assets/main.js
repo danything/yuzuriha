@@ -375,11 +375,19 @@ function popupHtml(property) {
 		.join("");
 	const rows = [
 		["所在地", `${property.prefecture}${property.city} ${property.address}`],
+		// 0円が前提なので、値が付いているものだけ出す
+		[
+			"譲渡代金",
+			property.price ? `${property.price.toLocaleString()} 円` : null,
+		],
 		["築年", property.builtYear],
 		["公開日", formatDate(property.publishedAt)],
+		// 取得元によっては閲覧数もお気に入りも持っていない
 		[
 			"閲覧・お気に入り",
-			`${property.views.toLocaleString()} 回 / ${property.favorites} 件`,
+			property.views || property.favorites
+				? `${property.views.toLocaleString()} 回 / ${property.favorites} 件`
+				: null,
 		],
 		// 掲載側に座標が無く住所から引いた場合は、その旨を出す
 		[
