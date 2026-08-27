@@ -13,7 +13,7 @@ const GSI_ATTR =
 	'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>';
 const ESRI_ATTR = "Esri, Maxar, Earthstar Geographics";
 /* クラスタの件数表示に使うフォント。ラスタタイルには文字が焼き込まれているので、これだけ */
-const GLYPHS = "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf";
+const GLYPHS = "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf";
 
 const STATUS_COLORS = {
 	募集中: "#34d399",
@@ -23,6 +23,8 @@ const STATUS_COLORS = {
 	未公開: "#a78bfa",
 };
 const FALLBACK_COLOR = "#94a3b8";
+/* 見たいのはたいてい募集中なので、初期表示はそれだけに絞る */
+const DEFAULT_STATUSES = ["募集中"];
 const ACCENT = "#34d399";
 const LIST_LIMIT = 120;
 
@@ -345,6 +347,10 @@ const SORTERS = {
 	favorites: (a, b) => b.favorites - a.favorites,
 };
 
+const isDefaultStatuses = () =>
+	state.statuses.size === DEFAULT_STATUSES.length &&
+	DEFAULT_STATUSES.every((status) => state.statuses.has(status));
+
 function filtered() {
 	return data.properties.filter((p) => matches(p)).sort(SORTERS[state.sort]);
 }
@@ -600,9 +606,11 @@ for (const layer of ["points", "clusters"]) {
 function readState() {
 	const p = new URLSearchParams(location.hash.slice(1));
 	const set = (key) => new Set((p.get(key) ?? "").split(",").filter(Boolean));
+	// st が無ければ既定 (募集中のみ)、st= と空で入っていれば全ステータス
+	const st = p.get("st");
 	return {
 		q: (p.get("q") ?? "").toLowerCase(),
-		statuses: set("st"),
+		statuses: st === null ? new Set(DEFAULT_STATUSES) : set("st"),
 		types: set("ty"),
 		region: p.get("rg") ?? "",
 		pref: p.get("pf") ?? "",
@@ -615,7 +623,7 @@ function readState() {
 function writeState() {
 	const p = new URLSearchParams();
 	if (state.q) p.set("q", state.q);
-	if (state.statuses.size) p.set("st", [...state.statuses].join(","));
+	if (!isDefaultStatuses()) p.set("st", [...state.statuses].join(","));
 	if (state.types.size) p.set("ty", [...state.types].join(","));
 	if (state.region) p.set("rg", state.region);
 	if (state.pref) p.set("pf", state.pref);

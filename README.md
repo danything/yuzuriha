@@ -32,7 +32,6 @@ bun app.ts csv  # 旧形式の map.csv が要るとき
 | 変数 | 意味 |
 | --- | --- |
 | `EMAIL` / `PASSWORD` | zero.estate のログイン情報（必須） |
-| `HTTPS_PROXY` | ローカルで必要ならプロキシ。CI では設定しない（Runner から到達できず接続が失敗する） |
 
 ローカルでは `.env` に書けば Bun が読み込む（`.env` は Git 管理外）。
 CI ではリポジトリの **Settings → Secrets and variables → Actions** に同名で登録する。
@@ -46,7 +45,7 @@ DOM でタイルを動かす方式（Leaflet）よりパンが軽い。WebGL2 �
 - 背景は **衛星写真**（既定: Esri World Imagery、切替で国土地理院シームレス空中写真・淡色地図）
 - 地名ラベルを重ねて表示（右下のレイヤコントロールで切替）
 - マーカーはステータス別の色。近い物件はクラスタにまとめ、ズームすると開く
-  （クラスタの件数表示にだけ [openmaptiles のフォント](https://fonts.openmaptiles.org/) を使う）
+  （クラスタの件数表示にだけ [MapLibre 配布のフォント](https://demotiles.maplibre.org/) を使う）
 - 物件名・住所の検索、ステータス / 種別 / 地方 / 都道府県 / 特記事項での絞り込み、
   新着・閲覧数・お気に入り順の並べ替え、「地図に写っている物件だけ一覧に出す」表示
 - 絞り込み条件は URL のハッシュに入るので、そのまま共有できる
