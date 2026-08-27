@@ -1,4 +1,6 @@
 node_modules
 .env
 data.json
+data-fieldmatching.json
+geocode-cache.json
 map.json

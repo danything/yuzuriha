@@ -1,3 +1,17 @@
+import {
+	fetchFieldMatching,
+	addressOf as fieldMatchingAddress,
+	toMapProperties as fieldMatchingToMap,
+	readRaw as readFieldMatchingRaw,
+} from "./fieldmatching.ts";
+import {
+	type GeoCache,
+	geocodeMissing,
+	loadCache,
+	normalizeAddress,
+} from "./geocode.ts";
+import type { MapProperty } from "./types.ts";
+
 type PropertyImage = {
 	id: number;
 	propertyId: number;
@@ -164,25 +178,6 @@ async function fetchAll() {
 /** 画像はすべてこの R2 バケット配下なので、共通部分は JSON から省く */
 const IMAGE_BASE = "https://pub-a219a93f532e41ea8c7013e00d34c61b.r2.dev/";
 
-type MapProperty = {
-	id: number;
-	title: string;
-	status: string;
-	type: string;
-	prefecture: string;
-	city: string;
-	region: string;
-	address: string;
-	lat: number;
-	lng: number;
-	builtYear: string | null;
-	views: number;
-	favorites: number;
-	notes: string[];
-	publishedAt: string;
-	image: string | null;
-};
-
 /** specialNotes は JSON 文字列の配列として入っている */
 function parseNotes(raw: string | null): string[] {
 	if (!raw) return [];
@@ -213,25 +208,46 @@ function pickImage(images: PropertyImage[] | undefined): string | null {
 	return url.startsWith(IMAGE_BASE) ? url.slice(IMAGE_BASE.length) : url;
 }
 
-async function generateJson() {
-	const file = Bun.file("data.json");
-	const items = JSON.parse(await file.text()) as Items[];
+/** 住所検索に投げる形の住所 */
+function zeroEstateAddress(item: Items): string {
+	return normalizeAddress(
+		item.prefecture ?? "",
+		item.city ?? "",
+		item.address ?? "",
+	);
+}
 
+/** zero.estate の生データを地図用に整える */
+function zeroEstateToMap(
+	items: Items[],
+	geo: GeoCache = {},
+): {
+	properties: MapProperty[];
+	unmapped: number;
+} {
 	const properties: MapProperty[] = [];
 	let unmapped = 0;
 
 	for (const item of items) {
-		const lat = toCoord(item.latitude ?? item.approximateLatitude);
-		const lng = toCoord(item.longitude ?? item.approximateLongitude);
+		let lat = toCoord(item.latitude ?? item.approximateLatitude);
+		let lng = toCoord(item.longitude ?? item.approximateLongitude);
+		let approx: string | null = null;
 
-		// 座標が無い物件は地図に置けないので件数だけ数えておく
+		// 掲載側に座標が無ければ、住所検索で引いた結果を使う
 		if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-			unmapped++;
-			continue;
+			const hit = geo[zeroEstateAddress(item)];
+			if (!hit) {
+				unmapped++;
+				continue;
+			}
+			({ lat, lng } = hit);
+			approx = hit.title;
 		}
 
 		properties.push({
-			id: item.id,
+			id: `zero:${item.id}`,
+			source: "zero.estate",
+			url: `https://zero.estate/properties/${item.id}`,
 			title: item.title,
 			status: item.status,
 			type: item.propertyType,
@@ -241,31 +257,90 @@ async function generateJson() {
 			address: item.address?.replace(/\s*\n\s*/g, " ") ?? "",
 			lat,
 			lng,
+			price: 0,
 			builtYear: item.builtYear,
 			views: item.viewCount ?? 0,
 			favorites: item.favoriteCount ?? 0,
 			notes: parseNotes(item.specialNotes),
 			publishedAt: item.approvedAt ?? item.createdAt,
 			image: pickImage(item.images),
+			approx,
 		});
 	}
 
-	properties.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+	return { properties, unmapped };
+}
+
+/** 取得元ごとの生データを1つの map.json にまとめる */
+async function generateJson() {
+	const zeroFile = Bun.file("data.json");
+	const zeroItems = (await zeroFile.exists())
+		? (JSON.parse(await zeroFile.text()) as Items[])
+		: [];
+	const fmItems = await readFieldMatchingRaw();
+	const geo = await loadCache();
+
+	const zero = zeroEstateToMap(zeroItems, geo);
+	const fm = fieldMatchingToMap(fmItems, geo);
+
+	const properties = [...zero.properties, ...fm.properties].sort((a, b) =>
+		b.publishedAt.localeCompare(a.publishedAt),
+	);
+
+	const sources = [
+		{
+			name: "zero.estate",
+			label: "みんなの0円物件",
+			url: "https://zero.estate/",
+			count: zero.properties.length,
+		},
+		{
+			name: "fieldmatching",
+			label: "フィールドマッチング",
+			url: "https://fieldmatching.klc1809.com/",
+			count: fm.properties.length,
+		},
+	].filter((source) => source.count > 0);
 
 	await Bun.write(
 		"map.json",
 		JSON.stringify({
 			generatedAt: new Date().toISOString(),
-			total: items.length,
-			unmapped,
+			total: properties.length,
+			unmapped: zero.unmapped + fm.unmapped,
 			imageBase: IMAGE_BASE,
+			sources,
 			properties,
 		}),
 	);
 
+	const approx = properties.filter((p) => p.approx).length;
 	console.log(
-		`map.json 出力完了 (${properties.length} 件 / 座標なし ${unmapped} 件)`,
+		`map.json 出力完了 (${properties.length} 件 / うち住所から推定 ${approx} 件 / ` +
+			`座標なし ${zero.unmapped + fm.unmapped} 件` +
+			`${fm.filtered ? ` / 価格で除外 ${fm.filtered} 件` : ""})`,
 	);
+	for (const source of sources)
+		console.log(`  ${source.label}: ${source.count} 件`);
+}
+
+/** 座標を持たない物件の住所をまとめて引く */
+async function runGeocode() {
+	const zeroFile = Bun.file("data.json");
+	const zeroItems = (await zeroFile.exists())
+		? (JSON.parse(await zeroFile.text()) as Items[])
+		: [];
+
+	const queries = [
+		...zeroItems
+			.filter((item) => !item.latitude && !item.approximateLatitude)
+			.map(zeroEstateAddress),
+		...(await readFieldMatchingRaw())
+			.filter((item) => !item.lat || !item.lng)
+			.map(fieldMatchingAddress),
+	];
+
+	await geocodeMissing(queries);
 }
 
 // -----------------------------
@@ -285,7 +360,8 @@ async function generateCsv() {
 		const longitude = json.longitude ?? json.approximateLongitude ?? "";
 		const latitude = json.latitude ?? json.approximateLatitude ?? "";
 		const safeAddress =
-			json.address?.replace(/\n/g, "\\n") ?? json.prefecture + json.city;
+			json.address?.replace(/\n/g, "\\n") ??
+			`${json.prefecture ?? ""}${json.city ?? ""}`;
 
 		writer.write(
 			`"${json.title}",https://zero.estate/properties/${json.id},${json.status},${longitude},${latitude},${safeAddress}\n`,
@@ -307,16 +383,28 @@ if (!command) {
 	await generateJson();
 } else if (command === "fetch") {
 	await fetchAll();
+} else if (command === "fetch-fm") {
+	await fetchFieldMatching();
+} else if (command === "geocode") {
+	await runGeocode();
 } else if (command === "json") {
 	await generateJson();
 } else if (command === "csv") {
 	await generateCsv();
 } else {
 	console.log("使い方:");
-	console.log("  bun run app.ts           # fetch + json 両方実行");
-	console.log("  bun run app.ts fetch     # API から取得して data.json を作る");
 	console.log(
-		"  bun run app.ts json      # data.json から地図用 map.json を作る",
+		"  bun run app.ts           # zero.estate を取得して json を作る",
+	);
+	console.log("  bun run app.ts fetch     # zero.estate から data.json を作る");
+	console.log(
+		"  bun run app.ts fetch-fm  # フィールドマッチングから data-fieldmatching.json を作る",
+	);
+	console.log(
+		"  bun run app.ts geocode   # 座標が無い物件の住所を国土地理院APIで引く",
+	);
+	console.log(
+		"  bun run app.ts json      # 生データから地図用 map.json を作る",
 	);
 	console.log("  bun run app.ts csv       # data.json から CSV を作る");
 }

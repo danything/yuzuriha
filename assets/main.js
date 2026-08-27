@@ -16,15 +16,19 @@ const ESRI_ATTR = "Esri, Maxar, Earthstar Geographics";
 const GLYPHS = "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf";
 
 const STATUS_COLORS = {
+	// zero.estate
 	募集中: "#34d399",
 	受付停止: "#fbbf24",
 	成約済み: "#f87171",
 	取引中止: "#60a5fa",
 	未公開: "#a78bfa",
+	// フィールドマッチング
+	公開中: "#34d399",
+	交渉中: "#fbbf24",
 };
 const FALLBACK_COLOR = "#94a3b8";
 /* 見たいのはたいてい募集中なので、初期表示はそれだけに絞る */
-const DEFAULT_STATUSES = ["募集中"];
+const DEFAULT_STATUSES = ["募集中", "公開中"];
 const ACCENT = "#34d399";
 const LIST_LIMIT = 120;
 
@@ -39,6 +43,10 @@ const escapeHtml = (value) =>
 		.replace(/'/g, "&#39;");
 
 const statusColor = (status) => STATUS_COLORS[status] ?? FALLBACK_COLOR;
+
+/** 取得元の表示名。map.json の sources から引く */
+const sourceLabel = (name) =>
+	data.sources?.find((s) => s.name === name)?.label ?? name;
 
 // 移行前の物件は CloudFront の絶対 URL、それ以外は R2 のパスだけを持つ
 const imageUrl = (property) =>
@@ -105,7 +113,8 @@ function buildStyle() {
 			clusterMaxZoom: 15,
 			clusterRadius: 55,
 			attribution:
-				'物件: <a href="https://zero.estate/" target="_blank" rel="noopener">zero.estate</a>',
+				'物件: <a href="https://zero.estate/" target="_blank" rel="noopener">zero.estate</a>' +
+				' / <a href="https://fieldmatching.klc1809.com/" target="_blank" rel="noopener">フィールドマッチング</a>',
 		},
 	};
 
@@ -372,6 +381,11 @@ function popupHtml(property) {
 			"閲覧・お気に入り",
 			`${property.views.toLocaleString()} 回 / ${property.favorites} 件`,
 		],
+		// 掲載側に座標が無く住所から引いた場合は、その旨を出す
+		[
+			"地図の位置",
+			property.approx ? `${property.approx} の住所から推定` : null,
+		],
 	]
 		.filter(([, value]) => value)
 		.map(([label, value]) => `<dt>${label}</dt><dd>${escapeHtml(value)}</dd>`)
@@ -385,11 +399,12 @@ function popupHtml(property) {
 				<div class="pop__tags">
 					<span class="pop__badge">${escapeHtml(property.status)}</span>
 					<span class="pop__tag">${escapeHtml(property.type)}</span>
+					<span class="pop__tag pop__tag--source">${escapeHtml(sourceLabel(property.source))}</span>
 					${notes}
 				</div>
 				<dl class="pop__rows">${rows}</dl>
 				<div class="pop__links">
-					<a class="pop__link pop__link--primary" href="https://zero.estate/properties/${property.id}" target="_blank" rel="noopener">詳細ページ</a>
+					<a class="pop__link pop__link--primary" href="${escapeHtml(property.url)}" target="_blank" rel="noopener">詳細ページ</a>
 					<a class="pop__link" href="https://www.google.com/maps/dir/?api=1&destination=${property.lat},${property.lng}" target="_blank" rel="noopener">経路</a>
 				</div>
 			</div>
@@ -415,7 +430,6 @@ function openPopup(property) {
 function toFeature(property) {
 	return {
 		type: "Feature",
-		id: property.id,
 		geometry: { type: "Point", coordinates: [property.lng, property.lat] },
 		properties: { id: property.id, status: property.status },
 	};
@@ -453,7 +467,7 @@ function renderList(entries) {
 					<span class="list__meta">
 						<span class="list__status">${escapeHtml(property.status)}</span>
 						<span>${escapeHtml(property.prefecture)}${escapeHtml(property.city)}</span>
-						<span>${formatDate(property.publishedAt)}</span>
+						<span>${escapeHtml(sourceLabel(property.source))}</span>
 					</span>
 				</span>
 			</li>`,
@@ -766,7 +780,7 @@ function wireEvents() {
 
 	$("list").addEventListener("click", (event) => {
 		const item = event.target.closest(".list__item");
-		if (item) focusProperty(Number(item.dataset.id));
+		if (item) focusProperty(item.dataset.id);
 	});
 
 	// 表示範囲で絞る設定のときだけ、地図の移動に合わせて一覧を作り直す
