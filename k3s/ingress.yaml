@@ -14,11 +14,9 @@ spec:
     - hosts:
         - y.doany.io
   rules:
-    # y.doany.io currently CNAMEs to GitHub Pages. Cutting over means pointing
-    # it back at the house and dropping the custom domain on the Pages side --
-    # that also ends the redirect from 5ym.github.io/zero-owner/, which is the
-    # URL アキソル was given. Holding off on that redirect was the reason to wait;
-    # both inquiries have since been answered, so the cutover is free to happen.
+    # Cut over from GitHub Pages: the DNS record now points here, and the
+    # Pages site (and its custom domain, so the 5ym.github.io/zero-owner/
+    # redirect アキソル was given) has been deleted from GitHub.
     - host: y.doany.io
       http:
         paths:
