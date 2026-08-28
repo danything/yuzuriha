@@ -138,11 +138,11 @@ CDN は使っていない。
 ## 自宅クラスタへの移行（未適用）
 
 [`k3s/`](k3s/) にマニフェストを置いてある。配信も定期ビルドも `server.ts` の
-1プロセスなので、Deployment ひとつと、取得結果を残す PVC だけ。イメージは
-`.github/workflows/docker-publish.yml` が ghcr に push したものを使う。
+1プロセスなので、Deployment ひとつと、取得結果を残す PVC だけ。
 `danything` 配下のリポジトリは `k3s/argocd.yaml` が ApplicationSet に拾われて
-デプロイされるので、**移管しない限り適用されない**（イメージ名もリポジトリ名に
-追従するので、移管・改名が済むまで `k3s/deployment.yaml` の参照先は存在しない）。
+デプロイされるので、**移管しない限り適用されない**。イメージを ghcr に push する
+ワークフローも移管・改名と同時に入れるので、それまで `k3s/deployment.yaml` が
+指しているイメージは存在しない。
 
 移行するとビルドも国内IPから走るので、負動産の掲示板と NISUMEL の 403 を
 踏まなくなり、3proxy を経由する必要がなくなる。

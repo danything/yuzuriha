@@ -38,10 +38,11 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: yuzuriha
-          # Published by .github/workflows/docker-publish.yml. The name follows
-          # the repository, so it is only correct once this repo has moved to
-          # danything and been renamed -- which is also the only point at which
-          # the ApplicationSet picks these manifests up at all.
+          # Nothing publishes this yet. The image build goes in at the same
+          # time as the move to danything and the rename -- which is also the
+          # only point at which the ApplicationSet picks these manifests up at
+          # all, so until then the name here is the one it will have, not one
+          # that resolves.
           image: ghcr.io/danything/yuzuriha:latest
           imagePullPolicy: Always
           ports:
