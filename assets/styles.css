@@ -484,6 +484,54 @@ button:focus-visible {
 	font-weight: 700;
 }
 
+.pop-pick {
+	padding: 12px 14px 14px;
+}
+
+.pop-pick__lead {
+	margin: 0 0 8px;
+	font-size: 12px;
+	color: var(--muted);
+}
+
+.pop-pick__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.pop-pick__item {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 8px 10px;
+	border-radius: 8px;
+	border: 1px solid var(--line);
+	background: none;
+	color: var(--text);
+	text-align: left;
+	cursor: pointer;
+}
+
+.pop-pick__item:hover {
+	background: rgba(255, 255, 255, 0.07);
+}
+
+.pop-pick__name {
+	font-size: 12px;
+	line-height: 1.4;
+	font-weight: 700;
+}
+
+.pop-pick__meta {
+	font-size: 11px;
+	color: var(--muted);
+}
+
 /* ---------- MapLibre の暗色化 ---------- */
 
 .maplibregl-ctrl-group {

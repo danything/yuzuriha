@@ -80,6 +80,10 @@ const FALLBACK_COLOR = "#94a3b8";
 const DEFAULT_STATUSES = ["募集中"];
 const ACCENT = "#34d399";
 const LIST_LIMIT = 120;
+/* 負動産の掲示板は番地までの住所を出さないため、同じ大字の複数物件が
+   同一座標に重なることがある。ズームでは絶対に割れないので、その点数は
+   クラスタリングを打ち切る側にも合わせておく */
+const CLUSTER_MAX_ZOOM = 15;
 
 const CHIP_GROUPS: ChipGroup[] = [
 	{
@@ -186,7 +190,7 @@ function buildStyle(): StyleSpecification {
 			type: "geojson",
 			data: EMPTY,
 			cluster: true,
-			clusterMaxZoom: 15,
+			clusterMaxZoom: CLUSTER_MAX_ZOOM,
 			clusterRadius: 55,
 			// 物件の出典はパネルのフッタに出す（取得元が map.json 次第で変わるため）
 		},
@@ -516,6 +520,48 @@ function openPopup(property: MapProperty): void {
 	});
 }
 
+/** 住所からの推定などで同じ座標に重なった物件は、ズームでは分離できない。選ばせる */
+function pickerHtml(properties: MapProperty[]): string {
+	const items = properties
+		.map(
+			(property) => `
+			<li>
+				<button type="button" class="pop-pick__item" data-pick-id="${escapeHtml(property.id)}">
+					<span class="pop-pick__name">${escapeHtml(property.title)}</span>
+					<span class="pop-pick__meta">${escapeHtml(property.status)} ・ ${escapeHtml(sourceLabel(property.source))}</span>
+				</button>
+			</li>`,
+		)
+		.join("");
+	return `
+		<div class="pop-pick">
+			<p class="pop-pick__lead">同じ場所に ${properties.length} 件あります</p>
+			<ul class="pop-pick__list">${items}</ul>
+		</div>`;
+}
+
+function openPicker(properties: MapProperty[], lngLat: [number, number]): void {
+	popup?.remove();
+	shownId = null;
+	popup = new Popup({
+		maxWidth: "280px",
+		offset: 14,
+		className: "pop-wrap",
+	})
+		.setLngLat(lngLat)
+		.setHTML(pickerHtml(properties))
+		.addTo(map);
+	popup
+		.getElement()
+		?.querySelectorAll<HTMLButtonElement>("[data-pick-id]")
+		.forEach((button) => {
+			button.addEventListener("click", () => {
+				const property = byId.get(button.dataset.pickId ?? "");
+				if (property) openPopup(property);
+			});
+		});
+}
+
 function toFeature(property: MapProperty): Feature<Point> {
 	return {
 		type: "Feature",
@@ -681,9 +727,16 @@ function focusProperty(id: string): void {
 /* ---------- 地図の操作 ---------- */
 
 map.on("click", "points", (event) => {
-	const feature = event.features?.[0];
-	const property = feature && byId.get(String(feature.properties.id));
-	if (property) openPopup(property);
+	// 同一座標に重なった物件は、クリックした地点にある特徴量が全部返ってくる
+	const ids = new Set(
+		(event.features ?? []).map((feature) => String(feature.properties?.id)),
+	);
+	const properties = Array.from(ids, (id) => byId.get(id)).filter(
+		(property): property is MapProperty => !!property,
+	);
+	if (properties.length === 1) openPopup(properties[0]);
+	else if (properties.length > 1)
+		openPicker(properties, [properties[0].lng, properties[0].lat]);
 });
 
 map.on("click", "clusters", async (event) => {
@@ -691,14 +744,39 @@ map.on("click", "clusters", async (event) => {
 	const source = map.getSource("properties") as GeoJSONSource | undefined;
 	if (!cluster || !source || cluster.geometry.type !== "Point") return;
 
-	const zoom = await source.getClusterExpansionZoom(
-		cluster.properties.cluster_id,
-	);
-	map.easeTo({
-		center: cluster.geometry.coordinates as [number, number],
-		zoom,
-		duration: 500,
-	});
+	const clusterId = cluster.properties.cluster_id;
+	const coordinates = cluster.geometry.coordinates as [number, number];
+	const zoom = await source.getClusterExpansionZoom(clusterId);
+
+	if (zoom > CLUSTER_MAX_ZOOM) {
+		// clusterMaxZoom を超えてもズームで割れないクラスタは、たいてい住所からの
+		// 推定で同一座標に重なっただけ（本当に近いだけの物件は、割れなくても
+		// clusterMaxZoom を過ぎれば個別の点として離れて描かれる）
+		const leaves = (await source.getClusterLeaves(
+			clusterId,
+			cluster.properties.point_count,
+			0,
+		)) as Feature<Point>[];
+		const [first] = leaves;
+		const samePoint =
+			first &&
+			leaves.every(
+				(leaf) =>
+					leaf.geometry.coordinates[0] === first.geometry.coordinates[0] &&
+					leaf.geometry.coordinates[1] === first.geometry.coordinates[1],
+			);
+		if (samePoint) {
+			const properties = leaves
+				.map((leaf) => byId.get(String(leaf.properties?.id)))
+				.filter((property): property is MapProperty => !!property);
+			if (properties.length) {
+				openPicker(properties, coordinates);
+				return;
+			}
+		}
+	}
+
+	map.easeTo({ center: coordinates, zoom, duration: 500 });
 });
 
 for (const layer of ["points", "clusters"]) {
