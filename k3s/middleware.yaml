@@ -1,0 +1,10 @@
+# map.json is the whole payload -- around 2MB of JSON that gzips to about a
+# seventh of that -- and Bun.serve does not compress on its own. GitHub Pages
+# did this for us; here Traefik has to be told to.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: compress
+  namespace: yuzuriha
+spec:
+  compress: {}

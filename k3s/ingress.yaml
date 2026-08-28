@@ -6,6 +6,8 @@ metadata:
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls.certresolver: mydnschallenge
+    # Bun serves uncompressed; Traefik compresses on the way out.
+    traefik.ingress.kubernetes.io/router.middlewares: yuzuriha-compress@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:

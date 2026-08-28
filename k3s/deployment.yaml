@@ -1,3 +1,14 @@
+# One process does everything: it serves the site and rebuilds map.json on its
+# own schedule (Bun.cron inside server.ts). There is no separate CronJob and no
+# web server in front of it -- an earlier draft had Caddy plus a CronJob that
+# cloned the repo and ran the build, which meant two images, a shared volume and
+# a document root to keep in sync for a site that is one HTML file.
+#
+# Running the build here rather than in GitHub Actions is the point: 負動産の掲示板
+# and NISUMEL are WordPress sites on Japanese hosting that answer wp-json with
+# 403 to overseas addresses, which is why the Actions build has to go through the
+# 3proxy in this cluster. From here the requests already come from a Japanese
+# address, so no proxy is involved.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,9 +16,9 @@ metadata:
   namespace: yuzuriha
 spec:
   replicas: 1
-  # The PVC is ReadWriteOnce and the CronJob may hold it, so don't try to run
-  # two pods at once during a rollout. The site is static and comes back in a
-  # second or two, which is cheaper than arranging a handover for it.
+  # The PVC is ReadWriteOnce and holds the fetched data, so don't run two pods
+  # over it at once. The site is static and comes back in a second or two, which
+  # is cheaper than arranging a handover for it.
   strategy:
     type: Recreate
   selector:
@@ -18,65 +29,62 @@ spec:
       labels:
         app: yuzuriha
     spec:
-      # The CronJob writes the files as its own uid; naming the group here has
-      # the kubelet line them up so Caddy can read them without a chown.
+      # The volume is created by whichever uid the image runs as; naming the
+      # group here has the kubelet line it up on mount so the data directory
+      # stays writable if that uid ever moves. OnRootMismatch skips the walk
+      # when the top-level directory already matches.
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
       containers:
-        - name: caddy
-          image: caddy:2.10-alpine
+        - name: yuzuriha
+          # Published by .github/workflows/docker-publish.yml. The name follows
+          # the repository, so it is only correct once this repo has moved to
+          # danything and been renamed -- which is also the only point at which
+          # the ApplicationSet picks these manifests up at all.
+          image: ghcr.io/danything/yuzuriha:latest
+          imagePullPolicy: Always
           ports:
-            - containerPort: 8080
+            - containerPort: 5173
           env:
             - name: TZ
               value: Asia/Tokyo
-            # Caddy wants somewhere to keep its data and config; with a
-            # read-only root filesystem that has to be the emptyDir.
-            - name: XDG_DATA_HOME
-              value: /tmp
-            - name: XDG_CONFIG_HOME
-              value: /tmp
+            # Rebuild every morning at 9. Fetching all six sources takes a few
+            # minutes; Bun.cron will not start a second run on top of one that
+            # is still going.
+            - name: BUILD_CRON
+              value: "0 9 * * *"
+          # The first build on an empty volume takes minutes, and until it
+          # finishes there is no map.json -- so probe the page, not the data.
           readinessProbe:
             httpGet:
               path: /index.html
-              port: 8080
+              port: 5173
             periodSeconds: 5
           livenessProbe:
             httpGet:
               path: /index.html
-              port: 8080
+              port: 5173
             periodSeconds: 15
             failureThreshold: 4
           volumeMounts:
-            - name: config
-              mountPath: /etc/caddy
-              readOnly: true
-            # Only the site/ subdirectory is served. state/ sits in the same
-            # volume but stays out of the document root.
+            # Raw responses, the geocode cache and map.json. Everything else in
+            # the image is read-only.
             - name: data
-              mountPath: /srv/site
-              subPath: site
-              readOnly: true
-            - name: tmp
-              mountPath: /tmp
+              mountPath: /usr/src/app/data
           resources:
             requests:
-              cpu: 10m
-              memory: 32Mi
-            limits:
+              cpu: 50m
               memory: 128Mi
+            limits:
+              # A build holds every source's raw JSON in memory at once.
+              memory: 1Gi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
       volumes:
-        - name: config
-          configMap:
-            name: yuzuriha-caddy
         - name: data
           persistentVolumeClaim:
-            claimName: yuzuriha-site
-        - name: tmp
-          emptyDir: {}
+            claimName: yuzuriha-data
