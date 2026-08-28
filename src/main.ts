@@ -539,10 +539,15 @@ function renderList(entries: MapProperty[]): void {
 	}
 
 	// 写真は原寸 (1枚 500KB 前後) なので、実際に見えた行だけ読み込む
+	const NO_PHOTO = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+		<path d="M4 5h16v14H4z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+		<circle cx="9" cy="10" r="1.4" fill="currentColor"/>
+		<path d="m4 16 5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+	</svg>`;
 	const thumb = (property: MapProperty) =>
 		property.image
 			? `<img class="list__thumb" data-src="${escapeHtml(property.image)}" alt="" width="52" height="40" decoding="async">`
-			: `<span class="list__thumb"></span>`;
+			: `<span class="list__thumb" aria-hidden="true">${NO_PHOTO}</span>`;
 
 	list.innerHTML =
 		visible

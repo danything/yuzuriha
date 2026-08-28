@@ -1,14 +1,14 @@
 /**
  * 取得元で共通して要るもの。
  *
- * 相手は6サイトとも別々の作りだが、名乗り方・間隔の空け方・生データの置き方と、
+ * 相手は5サイトとも別々の作りだが、名乗り方・間隔の空け方・生データの置き方と、
  * 日本語の住所や価格の読み方は同じでいいので、ここにまとめている。
  * 名乗りと待ちだけは住所検索 (geocode.ts) からも使う。
  */
 
 /** ヘッダに非ASCIIは入れられないので英字で名乗る */
 export const USER_AGENT =
-	"zero-owner/1.0 (personal map project; +https://github.com/5ym/zero-owner)";
+	"yuzuriha/1.0 (personal map project; +https://github.com/danything/yuzuriha)";
 
 /** 取得の間隔。相手のサイトに負荷をかけないための待ち */
 export const DELAY_MS = Number(Bun.env.FETCH_DELAY_MS ?? 700);

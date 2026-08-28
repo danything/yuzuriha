@@ -48,7 +48,7 @@ spec:
           env:
             - name: TZ
               value: Asia/Tokyo
-            # Rebuild every morning at 9. Fetching all six sources takes a few
+            # Rebuild every morning at 9. Fetching all five sources takes a few
             # minutes; Bun.cron will not start a second run on top of one that
             # is still going.
             - name: BUILD_CRON

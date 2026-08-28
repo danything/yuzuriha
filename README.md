@@ -1,7 +1,9 @@
-# zero-owner
+# yuzuriha
 
 0円物件を掲載サイトから集めて、**衛星写真の地図**に表示するサイト。サイト名は**譲葉**。
-公開しているのは GitHub Pages の静的サイトで、同じものを `server.ts` でも配信できる。
+自宅クラスタ（[`k3s/`](k3s/)）に `server.ts` を常時デプロイしてあり、そこが配信する。
+以前は GitHub Pages の静的サイトとしても同じものを配っていたが、そちらを最新に
+保っていた GitHub Actions は削除済みで、もう更新されない。
 
 | 取得元 | 対象 |
 | --- | --- |
@@ -34,10 +36,11 @@ index.html        地図ページ
 src/main.ts       MapLibre GL の地図・絞り込み・一覧（TypeScript）
 build-web.ts      src/ を assets/ に書き出す
 assets/styles.css 見た目（ここは手書き）
+assets/favicon.svg, assets/apple-touch-icon.png  アイコン（手書き）
 assets/main.js    生成物。maplibre-gl.* も生成時に置かれる
 Dockerfile        実行イメージ。node_modules は入らない（実行時の依存が無いため）
 compose.yml       ローカル実行。認証情報は compose.override.yml で上書きする
-k3s/              自宅クラスタ用のマニフェスト（未適用）
+k3s/              自宅クラスタ用のマニフェスト。ArgoCD が追従してデプロイする
 data/             生成物。すべて Git 管理外
   map.json          地図が読む軽量データ
   <取得元>.json     取得元ごとの生データ
@@ -74,7 +77,7 @@ bun run typecheck       # 型
 | `IE_MAX_PRICE` | 家いちばで地図に載せる価格の上限。既定 `0`（円） |
 | `FETCH_DELAY_MS` | 取得の間隔。既定 `700`（ミリ秒） |
 | `GEOCODE_DELAY_MS` | 住所検索の間隔。既定 `500`（ミリ秒） |
-| `HTTPS_PROXY` | 負動産の掲示板・NISUMEL の取得だけに使う。下記参照 |
+| `HTTPS_PROXY` | 海外IPから負動産の掲示板・NISUMEL を取得する際に迂回させる。プロセス全体の `fetch` に掛かる。下記参照 |
 | `PORT` | 配信するポート。既定 `5173` |
 | `BUILD_CRON` | 定期ビルドの時刻（例 `0 9 * * *`）。空なら定期ビルドをしない |
 | `TZ` | `BUILD_CRON` を読む時間帯。既定 `Asia/Tokyo` |
@@ -95,7 +98,9 @@ curl -sf https://raw.githubusercontent.com/danything/genkan/main/init.sh | sh -s
 
 `bun run dev` で直に動かす場合は `http://localhost:5173/`。
 
-CI ではリポジトリの **Settings → Secrets and variables → Actions** に同名で登録する。
+自宅クラスタでは [`k3s/deployment.yaml`](k3s/deployment.yaml) に直接書く。
+イメージのビルド自体（`.github/workflows/docker-publish.yml`）はこれらの変数を
+読まないので、GitHub Actions の Secrets には登録していない。
 
 ## 地図
 
@@ -129,33 +134,36 @@ CDN は使っていない。
 ## 国内プロキシ
 
 負動産の掲示板と NISUMEL は、どちらも日本のレンタルサーバで動く WordPress で、
-**海外IPからの `wp-json` へのアクセスを 403 で弾く**。GitHub Actions の Runner は
-海外IPなので、この2つだけ国内のプロキシを経由させる必要がある
+**海外IPからの `wp-json` へのアクセスを 403 で弾く**
 （User-Agent は無関係。手元の日本のIPからは同じUAで 200 が返る）。
 
-`HTTPS_PROXY` に `https://ユーザー:パスワード@ホスト名` を Secret で設定すると、
-該当2ステップだけがそのプロキシを通る。Bun の `fetch` は `https://` 形式の
-プロキシと Basic 認証の両方に対応している。
+自宅クラスタは日本のIPから動くので、本番の定期ビルドはこの 403 を踏まない。
+海外から `bun app.ts fetch` などを直接叩く場合だけ、`HTTPS_PROXY` に
+`https://ユーザー:パスワード@ホスト名` を設定すると迂回できる。Bun の `fetch` は
+`https://` 形式のプロキシと Basic 認証の両方に対応している。
+
+（かつては GitHub Actions の定期ビルドが海外IPの Runner から動いていたため、
+負動産の掲示板と NISUMEL の取得ステップだけこのプロキシを経由させていた。
+そのワークフローは自宅クラスタへの移行にともなって削除済み。）
 
 プロキシ側の構成は [`danything/k3s-gitops`](https://github.com/danything/k3s-gitops) の
 `3proxy/` にある。宛先ACLでこの2ドメインへの CONNECT だけを許可しているので、
 認証情報が漏れても踏み台にはならない。
 
-## 自宅クラスタへの移行（未適用）
+## 自宅クラスタでの運用
 
 [`k3s/`](k3s/) にマニフェストを置いてある。配信も定期ビルドも `server.ts` の
-1プロセスなので、Deployment ひとつと、取得結果を残す PVC だけ。
-`danything` 配下のリポジトリは `k3s/argocd.yaml` が ApplicationSet に拾われて
-デプロイされるので、**移管しない限り適用されない**。イメージを ghcr に push する
-ワークフローも移管・改名と同時に入れるので、それまで `k3s/deployment.yaml` が
-指しているイメージは存在しない。
+1プロセスなので、Deployment ひとつと、取得結果を残す PVC だけ。`danything`
+配下のリポジトリは `k3s/argocd.yaml` が ApplicationSet に拾われて自動デプロイ
+される。イメージは [`docker-publish.yml`](.github/workflows/docker-publish.yml)
+が `main` への push のたびに ghcr へ push し、ArgoCD がその `latest` を引く。
+コードを変えても自動ではロールアウトしないので、反映するには
+`kubectl -n yuzuriha rollout restart deploy/yuzuriha` を叩く。
 
-移行するとビルドも国内IPから走るので、負動産の掲示板と NISUMEL の 403 を
-踏まなくなり、3proxy を経由する必要がなくなる。
-
-切り替えの順序に注意。`y.doany.io` を自宅に向け直して Pages 側の独自ドメインを
-外すと、`5ym.github.io/zero-owner/` からのリダイレクトが消える。この URL を
-照会先に伝えてあったため保留していたが、両社とも回答済みなので、いつ切り替えてもよい。
+`y.doany.io` は現時点では GitHub Pages に CNAME している。自宅に向け直して
+Pages 側の独自ドメインを外すと、`5ym.github.io/zero-owner/` からのリダイレクトが
+消える。このURLをアキソルへの照会文に書いていたため切り替えを保留していたが、
+両社とも回答済みなので、いつ切り替えてもよい。
 
 ## 利用条件
 
