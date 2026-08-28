@@ -38,11 +38,9 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: yuzuriha
-          # Nothing publishes this yet. The image build goes in at the same
-          # time as the move to danything and the rename -- which is also the
-          # only point at which the ApplicationSet picks these manifests up at
-          # all, so until then the name here is the one it will have, not one
-          # that resolves.
+          # Built and pushed by .github/workflows/docker-publish.yml on every
+          # push to main. Nothing bumps a tag here, so a code change reaches
+          # the cluster with: kubectl -n yuzuriha rollout restart deploy/yuzuriha
           image: ghcr.io/danything/yuzuriha:latest
           imagePullPolicy: Always
           ports:
