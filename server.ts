@@ -29,11 +29,18 @@ const ROUTES: Record<string, { path: string; cache: string }> = {
 // assets/ は起動時にあるものをそのまま載せる。中身は maplibre の chunk まで
 // 数えると6つあり、build-web.ts と名前を二重に持ちたくない。
 // 走査した名前としか照合しないので、パスを組み立てるのと違って `..` は入らない。
-for await (const name of new Bun.Glob("*").scan("assets")) {
-	ROUTES[`/assets/${name}`] = {
-		path: `assets/${name}`,
-		cache: "public, max-age=3600",
-	};
+try {
+	for await (const name of new Bun.Glob("*").scan("assets")) {
+		ROUTES[`/assets/${name}`] = {
+			path: `assets/${name}`,
+			cache: "public, max-age=3600",
+		};
+	}
+} catch {
+	// フロントを一度もビルドしていないと assets/ 自体が無い
+	console.warn(
+		"assets/ がありません。先に bun build-web.ts を実行してください",
+	);
 }
 
 /** 中身を読まずに済ませたいので、サイズと更新時刻から作る */

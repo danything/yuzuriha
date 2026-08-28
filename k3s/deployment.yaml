@@ -72,6 +72,9 @@ spec:
             # the image is read-only.
             - name: data
               mountPath: /usr/src/app/data
+            # The root filesystem is read-only; give it somewhere to write.
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 50m
@@ -88,3 +91,5 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: yuzuriha-data
+        - name: tmp
+          emptyDir: {}
