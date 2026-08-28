@@ -30,8 +30,12 @@ geocode.ts        座標が無い物件を住所から引く（国土地理院AP
 types.ts          地図が読む共通の物件型
 serve.ts          ローカル確認用の静的サーバ
 index.html        地図ページ
-assets/main.js    MapLibre GL の地図・絞り込み・一覧
-assets/styles.css 見た目
+Dockerfile        実行イメージ。node_modules は入らない（実行時の依存が無いため）
+compose.yml       ローカル実行。認証情報は compose.override.yml で上書きする
+src/main.ts       MapLibre GL の地図・絞り込み・一覧（TypeScript）
+build-web.ts      src/ を assets/ に書き出す
+assets/styles.css 見た目（ここは手書き）
+assets/main.js    生成物。maplibre-gl.* も生成時に置かれる
 k3s/              自宅クラスタ用のマニフェスト（未適用）
 data/             生成物。すべて Git 管理外
   map.json          地図が読む軽量データ
@@ -51,7 +55,8 @@ bun app.ts fetch        # すべての取得元から取得する
 bun app.ts fetch fm     # 1つの取得元だけ（zero / fm / md / ni / ie / zz）
 bun app.ts geocode      # 座標が無い物件の住所を国土地理院APIで引く
 bun app.ts json         # 生データから map.json を作る
-bun run dev             # http://localhost:5173/ で確認
+bun run build:web       # src/main.ts を assets/ に書き出す
+bun run dev             # フロントをビルドして http://localhost:5173/ で確認
 ```
 
 取得元を足すときは `sources/` にファイルを1つ作り、`sources/index.ts` の
@@ -68,7 +73,13 @@ bun run dev             # http://localhost:5173/ で確認
 | `GEOCODE_DELAY_MS` | 住所検索の間隔。既定 `500`（ミリ秒） |
 | `HTTPS_PROXY` | 負動産の掲示板・NISUMEL の取得だけに使う。下記参照 |
 
-ローカルでは `.env` に書けば Bun が読み込む（`.env` は Git 管理外）。
+ローカルでは `compose.override.yml` に書く（Git 管理外）。
+
+```bash
+cp compose.override.yml.example compose.override.yml   # 値を書き換えて使う
+docker compose up --build                              # http://localhost:5173/
+```
+
 CI ではリポジトリの **Settings → Secrets and variables → Actions** に同名で登録する。
 
 ## 地図
@@ -76,6 +87,10 @@ CI ではリポジトリの **Settings → Secrets and variables → Actions** �
 描画は **MapLibre GL JS**（WebGL）。ラスタタイルも点も GPU で描くので、
 DOM でタイルを動かす方式（Leaflet）よりパンが軽い。WebGL2 が必要なので、
 使えない環境では地図の代わりにその旨を表示する。
+
+maplibre-gl はバンドルに含めず、`dist` の `.mjs` を `assets/` に置いて
+`importmap` で解決している。自前で minify すると配布物より gzip で 100KB ほど
+太るため（244KB 対 141KB）。CDN は使っていない。
 
 - 背景は **衛星写真**（既定: Esri World Imagery、切替で国土地理院シームレス空中写真・淡色地図）
 - 地名ラベルを重ねて表示（右下のレイヤコントロールで切替）

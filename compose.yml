@@ -1,0 +1,14 @@
+# ローカルでの実行用。認証情報などは compose.override.yml で上書きする
+# （compose.override.yml は Git 管理外。compose.override.yml.example を写して使う）。
+services:
+  yuzuriha:
+    build: .
+    ports:
+      - "5173:5173"
+    environment:
+      TZ: Asia/Tokyo
+      # 空なら定期ビルドをしない。動かすときは "0 9 * * *" のように入れる
+      BUILD_CRON: ""
+    volumes:
+      # 取得結果と map.json。消してもビルドし直せる
+      - ./data:/usr/src/app/data

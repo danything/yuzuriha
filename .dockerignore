@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+data
+site
+k3s
+README.md
+LICENSE
+biome.json
+tsconfig.json
+renovate.json
+.env

@@ -54,6 +54,8 @@ jobs:
         run: bun app.ts geocode
       - name: Build map.json
         run: bun app.ts json
+      - name: Build the frontend
+        run: bun build-web.ts
 
       - name: Assemble site
         run: |

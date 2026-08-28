@@ -2,17 +2,20 @@
 	"name": "zero-owner",
 	"private": true,
 	"scripts": {
-		"start": "bun app.ts",
+		"start": "bun server.ts",
+		"build:web": "bun build-web.ts",
+		"build": "bun app.ts",
 		"fetch": "bun app.ts fetch",
 		"geocode": "bun app.ts geocode",
 		"json": "bun app.ts json",
-		"dev": "bun serve.ts",
+		"dev": "bun build-web.ts && bun server.ts",
 		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.16",
-		"@types/bun": "^1.2.15",
+		"@types/bun": "^1.4.0",
 		"@types/node": "^26.0.0",
+		"maplibre-gl": "^6.6.0",
 		"typescript": "^7.0.0"
 	}
 }

@@ -8,9 +8,12 @@
       name="description"
       content="zero.estate に掲載された0円物件を衛星写真の地図上に表示します。都道府県・種別・特記事項で絞り込めます。"
     />
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.0.0/dist/maplibre-gl.css" />
-    <link rel="modulepreload" href="https://unpkg.com/maplibre-gl@6.0.0/dist/maplibre-gl.mjs" />
+    <link rel="stylesheet" href="./assets/maplibre-gl.css" />
     <link rel="stylesheet" href="./assets/styles.css" />
+    <link rel="modulepreload" href="./assets/maplibre-gl.mjs" />
+    <script type="importmap">
+      { "imports": { "maplibre-gl": "./assets/maplibre-gl.mjs" } }
+    </script>
   </head>
   <body>
     <div id="map"></div>

@@ -1,13 +1,49 @@
-/* zero.estate の0円物件を衛星写真の地図に載せる。データは map.json (app.ts が生成) */
+/*
+ * 0円物件を衛星写真の地図に載せる。データは data/map.json (app.ts が生成)。
+ *
+ * maplibre-gl はバンドルに含めず external にしてある。自前で minify すると
+ * 配布物より 100KB ほど太るので、dist の .mjs をそのまま assets/ に置き、
+ * index.html の importmap で解決させている。
+ */
 
+import type { Feature, Point } from "geojson";
 import {
 	AttributionControl,
+	type GeoJSONSource,
 	LngLatBounds,
+	type LngLatLike,
+	type MapGeoJSONFeature,
 	Map as MapLibreMap,
 	NavigationControl,
 	Popup,
 	ScaleControl,
-} from "https://unpkg.com/maplibre-gl@6.0.0/dist/maplibre-gl.mjs";
+	type StyleSpecification,
+} from "maplibre-gl";
+import type { MapProperty } from "../types.ts";
+
+/** app.ts が書き出す map.json の形 */
+type MapData = {
+	generatedAt: string;
+	total: number;
+	unmapped: number;
+	imageBase: string;
+	sources: { name: string; label: string; url: string; count: number }[];
+	properties: MapProperty[];
+};
+
+type SortKey = "new" | "views" | "favorites";
+
+type State = {
+	q: string;
+	statuses: Set<string>;
+	sources: Set<string>;
+	types: Set<string>;
+	region: string;
+	pref: string;
+	notes: Set<string>;
+	sort: SortKey;
+	inView: boolean;
+};
 
 const GSI_ATTR =
 	'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>';
@@ -15,7 +51,7 @@ const ESRI_ATTR = "Esri, Maxar, Earthstar Geographics";
 /* クラスタの件数表示に使うフォント。ラスタタイルには文字が焼き込まれているので、これだけ */
 const GLYPHS = "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf";
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, string> = {
 	// zero.estate
 	募集中: "#34d399",
 	受付停止: "#fbbf24",
@@ -32,9 +68,10 @@ const DEFAULT_STATUSES = ["募集中", "公開中"];
 const ACCENT = "#34d399";
 const LIST_LIMIT = 120;
 
-const $ = (id) => document.getElementById(id);
+const $ = <T extends HTMLElement = HTMLElement>(id: string): T =>
+	document.getElementById(id) as T;
 
-const escapeHtml = (value) =>
+const escapeHtml = (value: unknown): string =>
 	String(value ?? "")
 		.replace(/&/g, "&amp;")
 		.replace(/</g, "&lt;")
@@ -42,19 +79,20 @@ const escapeHtml = (value) =>
 		.replace(/"/g, "&quot;")
 		.replace(/'/g, "&#39;");
 
-const statusColor = (status) => STATUS_COLORS[status] ?? FALLBACK_COLOR;
+const statusColor = (status: string): string =>
+	STATUS_COLORS[status] ?? FALLBACK_COLOR;
 
 /** 取得元の表示名。map.json の sources から引く */
-const sourceLabel = (name) =>
-	data.sources?.find((s) => s.name === name)?.label ?? name;
+const sourceLabel = (name: string): string =>
+	data.sources.find((s) => s.name === name)?.label ?? name;
 
 // 移行前の物件は CloudFront の絶対 URL、それ以外は R2 のパスだけを持つ
-const imageUrl = (property) =>
-	property.image.startsWith("http")
+const imageUrl = (property: MapProperty): string =>
+	property.image?.startsWith("http")
 		? property.image
 		: data.imageBase + property.image;
 
-const formatDate = (iso) => {
+const formatDate = (iso: string): string => {
 	const d = new Date(iso);
 	return Number.isNaN(d.getTime())
 		? ""
@@ -93,8 +131,8 @@ const BASES = [
 
 const EMPTY = { type: "FeatureCollection", features: [] };
 
-function buildStyle() {
-	const sources = {
+function buildStyle(): StyleSpecification {
+	const sources: Record<string, unknown> = {
 		// 衛星写真だけでは地名が分からないので、ラベルだけの層を重ねる
 		labels: {
 			type: "raster",
@@ -132,6 +170,8 @@ function buildStyle() {
 	}
 	statusMatch.push(FALLBACK_COLOR);
 
+	// レイヤ定義は静的で、字句が仕様の union に合うかは MapLibre が起動時に
+	// 検証する。ここで型を合わせるためだけに as const を撒くより読みやすい。
 	return {
 		version: 8,
 		glyphs: GLYPHS,
@@ -205,7 +245,7 @@ function buildStyle() {
 				},
 			},
 		],
-	};
+	} as StyleSpecification;
 }
 
 const map = new MapLibreMap({
@@ -234,8 +274,11 @@ map.addControl(
 
 /** 背景の切替（MapLibre には標準のレイヤ切替が無いので自前） */
 class LayerControl {
-	onAdd(mapInstance) {
-		this._map = mapInstance;
+	private map!: MapLibreMap;
+	private root!: HTMLElement;
+
+	onAdd(mapInstance: MapLibreMap): HTMLElement {
+		this.map = mapInstance;
 		const root = document.createElement("div");
 		root.className = "maplibregl-ctrl maplibregl-ctrl-group layers";
 		root.innerHTML = `
@@ -260,25 +303,26 @@ class LayerControl {
 				</label>
 			</div>`;
 
-		const menu = root.querySelector(".layers__menu");
-		const toggle = root.querySelector(".layers__toggle");
+		const menu = root.querySelector<HTMLElement>(".layers__menu");
+		const toggle = root.querySelector<HTMLButtonElement>(".layers__toggle");
+		if (!menu || !toggle) throw new Error("背景切替の描画に失敗");
 		toggle.addEventListener("click", () => {
 			menu.hidden = !menu.hidden;
 			toggle.setAttribute("aria-expanded", String(!menu.hidden));
 		});
 
 		root.addEventListener("change", (event) => {
-			const input = event.target;
+			const input = event.target as HTMLInputElement;
 			if (input.name === "base") {
 				for (const base of BASES) {
-					this._map.setLayoutProperty(
+					this.map.setLayoutProperty(
 						base.id,
 						"visibility",
 						base.id === input.value ? "visible" : "none",
 					);
 				}
 			} else if (input.id === "toggle-labels") {
-				this._map.setLayoutProperty(
+				this.map.setLayoutProperty(
 					"labels",
 					"visibility",
 					input.checked ? "visible" : "none",
@@ -286,12 +330,12 @@ class LayerControl {
 			}
 		});
 
-		this._root = root;
+		this.root = root;
 		return root;
 	}
 
-	onRemove() {
-		this._root.remove();
+	onRemove(): void {
+		this.root.remove();
 	}
 }
 
@@ -307,8 +351,15 @@ map.on("error", (event) => {
 
 /* ---------- 状態 ---------- */
 
-let data = { properties: [], imageBase: "", total: 0, unmapped: 0 };
-let state = {
+let data: MapData = {
+	generatedAt: "",
+	total: 0,
+	unmapped: 0,
+	imageBase: "",
+	sources: [],
+	properties: [],
+};
+let state: State = {
 	q: "",
 	statuses: new Set(),
 	sources: new Set(),
@@ -319,12 +370,12 @@ let state = {
 	sort: "new",
 	inView: false,
 };
-const byId = new Map();
-let popup = null;
-let shownId = null;
+const byId = new Map<string, MapProperty>();
+let popup: Popup | null = null;
+let shownId: string | null = null;
 
 /** skip に渡した条件だけ無視して判定する (チップの件数表示に使う) */
-function matches(property, skip) {
+function matches(property: MapProperty, skip?: string): boolean {
 	if (
 		skip !== "status" &&
 		state.statuses.size &&
@@ -355,7 +406,7 @@ function matches(property, skip) {
 	return true;
 }
 
-const SORTERS = {
+const SORTERS: Record<SortKey, (a: MapProperty, b: MapProperty) => number> = {
 	new: (a, b) => b.publishedAt.localeCompare(a.publishedAt),
 	views: (a, b) => b.views - a.views,
 	favorites: (a, b) => b.favorites - a.favorites,
@@ -371,7 +422,7 @@ function filtered() {
 
 /* ---------- 描画 ---------- */
 
-function popupHtml(property) {
+function popupHtml(property: MapProperty): string {
 	const photo = property.image
 		? `<img class="pop__photo" src="${escapeHtml(imageUrl(property))}" alt="" decoding="async">`
 		: "";
@@ -424,7 +475,7 @@ function popupHtml(property) {
 		</div>`;
 }
 
-function openPopup(property) {
+function openPopup(property: MapProperty): void {
 	popup?.remove();
 	shownId = property.id;
 	popup = new Popup({
@@ -440,7 +491,7 @@ function openPopup(property) {
 	});
 }
 
-function toFeature(property) {
+function toFeature(property: MapProperty): Feature<Point> {
 	return {
 		type: "Feature",
 		geometry: { type: "Point", coordinates: [property.lng, property.lat] },
@@ -448,7 +499,7 @@ function toFeature(property) {
 	};
 }
 
-function renderList(entries) {
+function renderList(entries: MapProperty[]): void {
 	const list = $("list");
 	const bounds = state.inView ? map.getBounds() : null;
 	const visible = bounds
@@ -463,7 +514,7 @@ function renderList(entries) {
 	}
 
 	// 写真は原寸 (1枚 500KB 前後) なので、実際に見えた行だけ読み込む
-	const thumb = (property) =>
+	const thumb = (property: MapProperty) =>
 		property.image
 			? `<img class="list__thumb" data-src="${escapeHtml(imageUrl(property))}" alt="" width="52" height="40" decoding="async">`
 			: `<span class="list__thumb"></span>`;
@@ -498,16 +549,18 @@ const thumbObserver = new IntersectionObserver(
 	(entries, observer) => {
 		for (const entry of entries) {
 			if (!entry.isIntersecting) continue;
-			const img = entry.target;
-			img.src = img.dataset.src;
+			const img = entry.target as HTMLImageElement;
+			if (img.dataset.src) img.src = img.dataset.src;
 			observer.unobserve(img);
 		}
 	},
 	{ root: $("panel-body"), rootMargin: "150px" },
 );
 
-function observeThumbs(list) {
-	for (const img of list.querySelectorAll("img.list__thumb[data-src]")) {
+function observeThumbs(list: HTMLElement): void {
+	for (const img of list.querySelectorAll<HTMLImageElement>(
+		"img.list__thumb[data-src]",
+	)) {
 		thumbObserver.observe(img);
 	}
 }
@@ -533,7 +586,7 @@ function renderChipCounts() {
 			for (const value of values)
 				counts.set(value, (counts.get(value) ?? 0) + 1);
 		}
-		for (const chip of $(box).querySelectorAll(".chip")) {
+		for (const chip of $(box).querySelectorAll<HTMLElement>(".chip")) {
 			const countEl = chip.querySelector(".chip__count");
 			if (countEl)
 				countEl.textContent = (
@@ -545,7 +598,7 @@ function renderChipCounts() {
 
 function render() {
 	const entries = filtered();
-	map.getSource("properties")?.setData({
+	(map.getSource("properties") as GeoJSONSource | undefined)?.setData({
 		type: "FeatureCollection",
 		features: entries.map(toFeature),
 	});
@@ -582,14 +635,14 @@ function fitToSelection() {
 	map.fitBounds(bounds, { padding: viewPadding(), maxZoom: 14, duration: 600 });
 }
 
-const isNarrow = () => window.matchMedia("(max-width: 640px)").matches;
+const isNarrow = (): boolean => window.matchMedia("(max-width: 640px)").matches;
 
-function setPanel(hidden) {
+function setPanel(hidden: boolean): void {
 	document.body.classList.toggle("panel-hidden", hidden);
 	map.resize();
 }
 
-function focusProperty(id) {
+function focusProperty(id: string): void {
 	const property = byId.get(id);
 	if (!property) return;
 	// 画面が狭いときはパネルがポップアップを覆ってしまうので閉じる
@@ -612,16 +665,24 @@ function focusProperty(id) {
 /* ---------- 地図の操作 ---------- */
 
 map.on("click", "points", (event) => {
-	const property = byId.get(event.features[0].properties.id);
+	const feature = event.features?.[0];
+	const property = feature && byId.get(String(feature.properties.id));
 	if (property) openPopup(property);
 });
 
 map.on("click", "clusters", async (event) => {
-	const cluster = event.features[0];
-	const zoom = await map
-		.getSource("properties")
-		.getClusterExpansionZoom(cluster.properties.cluster_id);
-	map.easeTo({ center: cluster.geometry.coordinates, zoom, duration: 500 });
+	const cluster = event.features?.[0];
+	const source = map.getSource("properties") as GeoJSONSource | undefined;
+	if (!cluster || !source || cluster.geometry.type !== "Point") return;
+
+	const zoom = await source.getClusterExpansionZoom(
+		cluster.properties.cluster_id,
+	);
+	map.easeTo({
+		center: cluster.geometry.coordinates as [number, number],
+		zoom,
+		duration: 500,
+	});
 });
 
 for (const layer of ["points", "clusters"]) {
@@ -635,11 +696,13 @@ for (const layer of ["points", "clusters"]) {
 
 /* ---------- URL への状態保存 ---------- */
 
-function readState() {
+function readState(): State {
 	const p = new URLSearchParams(location.hash.slice(1));
-	const set = (key) => new Set((p.get(key) ?? "").split(",").filter(Boolean));
+	const set = (key: string) =>
+		new Set((p.get(key) ?? "").split(",").filter(Boolean));
 	// st が無ければ既定 (募集中のみ)、st= と空で入っていれば全ステータス
 	const st = p.get("st");
+	const sort = p.get("sort");
 	return {
 		q: (p.get("q") ?? "").toLowerCase(),
 		statuses: st === null ? new Set(DEFAULT_STATUSES) : set("st"),
@@ -648,7 +711,7 @@ function readState() {
 		region: p.get("rg") ?? "",
 		pref: p.get("pf") ?? "",
 		notes: set("nt"),
-		sort: SORTERS[p.get("sort")] ? p.get("sort") : "new",
+		sort: sort && sort in SORTERS ? (sort as SortKey) : "new",
 		inView: p.get("view") === "1",
 	};
 }
@@ -675,9 +738,16 @@ function update() {
 
 /* ---------- UI 構築 ---------- */
 
-const uniqueSorted = (values) => [...new Set(values.filter(Boolean))].sort();
+const uniqueSorted = (values: (string | null | undefined)[]): string[] =>
+	[...new Set(values.filter((v): v is string => Boolean(v)))].sort();
 
-function chipHtml(value, count, pressed, color, label = value) {
+function chipHtml(
+	value: string,
+	count: string | number,
+	pressed: boolean,
+	color: string | null,
+	label: string = value,
+): string {
 	const dot = color ? `<span class="chip__dot"></span>` : "";
 	return `<button type="button" class="chip" data-value="${escapeHtml(value)}" aria-pressed="${pressed}"${
 		color ? ` style="--chip:${color}"` : ""
@@ -692,7 +762,7 @@ function buildControls() {
 		.map((s) => chipHtml(s, "", state.statuses.has(s), statusColor(s)))
 		.join("");
 
-	$("sources").innerHTML = (data.sources ?? [])
+	$("sources").innerHTML = data.sources
 		.map((source) =>
 			chipHtml(
 				source.name,
@@ -706,29 +776,29 @@ function buildControls() {
 
 	const types = uniqueSorted(properties.map((p) => p.type));
 	$("types").innerHTML = types
-		.map((t) => chipHtml(t, "", state.types.has(t)))
+		.map((t) => chipHtml(t, "", state.types.has(t), null))
 		.join("");
 
 	const notes = uniqueSorted(properties.flatMap((p) => p.notes));
 	$("notes").innerHTML = notes
-		.map((n) => chipHtml(n, "", state.notes.has(n)))
+		.map((n) => chipHtml(n, "", state.notes.has(n), null))
 		.join("");
 
 	const regions = uniqueSorted(properties.map((p) => p.region));
-	$("region").innerHTML =
+	$<HTMLSelectElement>("region").innerHTML =
 		`<option value="">すべて</option>` +
 		regions
 			.map((r) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`)
 			.join("");
-	$("region").value = state.region;
+	$<HTMLSelectElement>("region").value = state.region;
 
 	buildPrefOptions();
-	$("sort").value = state.sort;
-	$("in-view").checked = state.inView;
-	$("search").value = state.q;
+	$<HTMLSelectElement>("sort").value = state.sort;
+	$<HTMLInputElement>("in-view").checked = state.inView;
+	$<HTMLInputElement>("search").value = state.q;
 
 	// 取得元はデータ次第で変わるので、フッタも map.json から組み立てる
-	$("sources-credit").innerHTML = (data.sources ?? [])
+	$("sources-credit").innerHTML = data.sources
 		.map(
 			(source) =>
 				`<a href="${escapeHtml(source.url)}" target="_blank" rel="noopener">${escapeHtml(source.label)}</a>（${source.count.toLocaleString()}件）`,
@@ -752,19 +822,25 @@ function buildPrefOptions() {
 			.map((p) => p.prefecture),
 	);
 	if (state.pref && !prefs.includes(state.pref)) state.pref = "";
-	$("pref").innerHTML =
+	$<HTMLSelectElement>("pref").innerHTML =
 		`<option value="">すべて</option>` +
 		prefs
 			.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`)
 			.join("");
-	$("pref").value = state.pref;
+	$<HTMLSelectElement>("pref").value = state.pref;
 }
 
-function wireChipGroup(boxId, key, resetId) {
-	$(boxId).addEventListener("click", (event) => {
-		const chip = event.target.closest("button[data-value]");
-		if (!chip) return;
-		const value = chip.dataset.value;
+function wireChipGroup(
+	boxId: string,
+	key: "statuses" | "sources" | "types" | "notes",
+	resetId: string,
+): void {
+	$(boxId).addEventListener("click", (event: Event) => {
+		const chip = (event.target as HTMLElement).closest<HTMLButtonElement>(
+			"button[data-value]",
+		);
+		const value = chip?.dataset.value;
+		if (!value) return;
 		if (state[key].has(value)) state[key].delete(value);
 		else state[key].add(value);
 		chip.setAttribute("aria-pressed", String(state[key].has(value)));
@@ -773,7 +849,7 @@ function wireChipGroup(boxId, key, resetId) {
 
 	$(resetId).addEventListener("click", () => {
 		state[key].clear();
-		for (const chip of $(boxId).querySelectorAll(".chip")) {
+		for (const chip of $(boxId).querySelectorAll<HTMLElement>(".chip")) {
 			chip.setAttribute("aria-pressed", "false");
 		}
 		update();
@@ -786,32 +862,32 @@ function wireEvents() {
 	wireChipGroup("sources", "sources", "source-reset");
 	wireChipGroup("notes", "notes", "note-reset");
 
-	$("region").addEventListener("change", (event) => {
-		state.region = event.target.value;
+	$<HTMLSelectElement>("region").addEventListener("change", (event: Event) => {
+		state.region = (event.target as HTMLSelectElement).value;
 		buildPrefOptions();
 		update();
 		fitToSelection();
 	});
 
-	$("pref").addEventListener("change", (event) => {
-		state.pref = event.target.value;
+	$<HTMLSelectElement>("pref").addEventListener("change", (event: Event) => {
+		state.pref = (event.target as HTMLSelectElement).value;
 		update();
 		fitToSelection();
 	});
 
-	$("sort").addEventListener("change", (event) => {
-		state.sort = event.target.value;
+	$<HTMLSelectElement>("sort").addEventListener("change", (event: Event) => {
+		state.sort = (event.target as HTMLSelectElement).value as SortKey;
 		update();
 	});
 
-	$("in-view").addEventListener("change", (event) => {
-		state.inView = event.target.checked;
+	$<HTMLInputElement>("in-view").addEventListener("change", (event) => {
+		state.inView = (event.target as HTMLInputElement).checked;
 		update();
 	});
 
-	let searchTimer;
-	$("search").addEventListener("input", (event) => {
-		const value = event.target.value.toLowerCase();
+	let searchTimer: ReturnType<typeof setTimeout>;
+	$<HTMLInputElement>("search").addEventListener("input", (event) => {
+		const value = (event.target as HTMLInputElement).value.toLowerCase();
 		clearTimeout(searchTimer);
 		searchTimer = setTimeout(() => {
 			state.q = value;
@@ -819,9 +895,11 @@ function wireEvents() {
 		}, 200);
 	});
 
-	$("list").addEventListener("click", (event) => {
-		const item = event.target.closest(".list__item");
-		if (item) focusProperty(item.dataset.id);
+	$("list").addEventListener("click", (event: Event) => {
+		const item = (event.target as HTMLElement).closest<HTMLElement>(
+			".list__item",
+		);
+		if (item?.dataset.id) focusProperty(item.dataset.id);
 	});
 
 	// 表示範囲で絞る設定のときだけ、地図の移動に合わせて一覧を作り直す
@@ -833,7 +911,7 @@ function wireEvents() {
 	$("panel-toggle").addEventListener("click", () => setPanel(false));
 }
 
-function toast(message) {
+function toast(message: string): void {
 	const el = $("toast");
 	el.textContent = message;
 	el.hidden = false;
