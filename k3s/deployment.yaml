@@ -38,9 +38,9 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: yuzuriha
-          # Built and pushed by .github/workflows/docker-publish.yml on every
-          # push to main. Nothing bumps a tag here, so a code change reaches
-          # the cluster with: kubectl -n yuzuriha rollout restart deploy/yuzuriha
+          # Built, pushed, and this tag bumped by
+          # .github/workflows/docker-publish.yml on every push to main --
+          # ArgoCD picks up the change here and rolls it out on its own.
           image: ghcr.io/danything/yuzuriha:latest
           imagePullPolicy: Always
           ports:

@@ -156,9 +156,10 @@ CDN は使っていない。
 1プロセスなので、Deployment ひとつと、取得結果を残す PVC だけ。`danything`
 配下のリポジトリは `k3s/argocd.yaml` が ApplicationSet に拾われて自動デプロイ
 される。イメージは [`docker-publish.yml`](.github/workflows/docker-publish.yml)
-が `main` への push のたびに ghcr へ push し、ArgoCD がその `latest` を引く。
-コードを変えても自動ではロールアウトしないので、反映するには
-`kubectl -n yuzuriha rollout restart deploy/yuzuriha` を叩く。
+が `main` への push のたびに ghcr へ push し、同じジョブが
+`k3s/deployment.yaml` のタグをそのビルドの sha に書き換えて `main` に直接
+コミットする。ArgoCD はそのタグの変化を差分として検知して自動でロールアウト
+するので、手動で `kubectl rollout restart` する必要はない。
 
 `y.doany.io` は現時点では GitHub Pages に CNAME している。自宅に向け直して
 Pages 側の独自ドメインを外すと、`5ym.github.io/zero-owner/` からのリダイレクトが
