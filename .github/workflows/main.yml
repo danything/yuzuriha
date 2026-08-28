@@ -60,6 +60,8 @@ jobs:
           mkdir -p site
           cp index.html map.json site/
           cp -r assets site/assets
+          # 独自ドメイン。これが無いと Pages の設定が毎回リセットされる
+          echo "y.doany.io" > site/CNAME
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
