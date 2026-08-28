@@ -15,6 +15,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      # 書式と lint (TS / CSS / HTML) と型。公開は止めないので build とは別建て
+      - run: bunx biome ci .
+      - run: bun run typecheck
+
   build:
     runs-on: ubuntu-24.04-arm
     steps:
@@ -26,29 +36,21 @@ jobs:
         run: bun install --frozen-lockfile
 
       # みんなの0円物件 (zero.estate) は承諾待ちのため取得しない。
-      # data.json を作らなければ map.json にも入らない。
+      # 生データを作らなければ map.json にも入らない。
       # 1つの取得元が落ちても地図は出せるので、取得の失敗ではジョブを止めない
-      - name: Fetch フィールドマッチング
-        continue-on-error: true
-        run: bun app.ts fetch fm
-      - name: Fetch 負動産の掲示板
-        continue-on-error: true
+      - name: Fetch sources
+        run: |
+          for source in fm ie zz; do
+            bun app.ts fetch "$source" || echo "取得に失敗: $source"
+          done
+      # この2サイトは海外IPから 403 になるため、国内のプロキシを通す
+      - name: Fetch sources that block overseas addresses
         env:
-          # この2サイトは海外IPから 403 になるため、国内のプロキシを通す
           HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
-        run: bun app.ts fetch md
-      - name: Fetch NISUMEL
-        continue-on-error: true
-        env:
-          # この2サイトは海外IPから 403 になるため、国内のプロキシを通す
-          HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
-        run: bun app.ts fetch ni
-      - name: Fetch 家いちば
-        continue-on-error: true
-        run: bun app.ts fetch ie
-      - name: Fetch 全国０円不動産
-        continue-on-error: true
-        run: bun app.ts fetch zz
+        run: |
+          for source in md ni; do
+            bun app.ts fetch "$source" || echo "取得に失敗: $source"
+          done
 
       - name: Geocode missing coordinates
         run: bun app.ts geocode

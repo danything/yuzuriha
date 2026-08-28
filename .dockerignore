@@ -9,4 +9,7 @@ LICENSE
 biome.json
 tsconfig.json
 renovate.json
-.env
+# 認証情報が入る。イメージにもビルドコンテキストにも渡さない
+compose.yml
+compose.override.yml
+compose.override.yml.example
