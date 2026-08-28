@@ -195,6 +195,15 @@ input[type="search"] {
 	font-size: 13px;
 }
 
+/*
+ * 選択肢はブラウザが描くので、色を明示しないと配色を継がずに読めなくなる
+ * （閉じているときの薄い背景をそのまま使われて、暗い字が暗い地に乗る）。
+ */
+option {
+	background: var(--panel-solid);
+	color: var(--text);
+}
+
 select:focus-visible,
 input:focus-visible,
 button:focus-visible {
@@ -607,5 +616,10 @@ button:focus-visible {
 
 	.field--row {
 		flex-direction: column;
+	}
+
+	/* パネルが画面の下半分を覆うので、地図のコントロールはその上に逃がす */
+	body:not(.panel-hidden) .maplibregl-ctrl-bottom-right {
+		bottom: 58dvh;
 	}
 }

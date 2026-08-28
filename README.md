@@ -1,7 +1,8 @@
 # zero-owner
 
-0円物件を掲載サイトから集めて、**衛星写真の地図**に表示するサイト。
+0円物件を掲載サイトから集めて、**衛星写真の地図**に表示するサイト。サイト名は**譲葉**。
 公開しているのは GitHub Pages の静的サイトで、同じものを `server.ts` でも配信できる。
+（リポジトリ名の変更と `danything` への移管は、アキソルの回答待ちのため保留）
 
 | 取得元 | 対象 |
 | --- | --- |
@@ -86,8 +87,17 @@ bun run typecheck       # 型
 
 ```bash
 cp compose.override.yml.example compose.override.yml   # 値を書き換えて使う
-docker compose up --build                              # http://localhost:5173/
+docker compose up --build                              # https://yuzuriha.localhost/
 ```
+
+コンテナはポートを公開せず、[danything/genkan](https://github.com/danything/genkan)
+（caddy-docker-proxy）にホスト名で振り分けてもらう。先に genkan を起動しておくこと。
+
+```bash
+curl -sf https://raw.githubusercontent.com/danything/genkan/main/init.sh | sh -s
+```
+
+`bun run dev` で直に動かす場合は `http://localhost:5173/`。
 
 CI ではリポジトリの **Settings → Secrets and variables → Actions** に同名で登録する。
 

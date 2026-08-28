@@ -306,8 +306,9 @@ const map = new MapLibreMap({
 });
 map.touchZoomRotate?.disableRotation();
 
-map.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
-// bottom-right は後から足したものが上に積まれるので、出典 → 背景切替 → ズームの順で足す
+// bottom-left はパネルの真下になり、半透明のパネル越しに透けて見えてしまう。
+// bottom-right は後から足したものが上に積まれるので、縮尺 → 出典 → 背景切替 → ズームの順
+map.addControl(new ScaleControl({ unit: "metric" }), "bottom-right");
 map.addControl(
 	new AttributionControl({
 		compact: true,

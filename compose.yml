@@ -1,10 +1,17 @@
 # ローカルでの実行用。認証情報などは compose.override.yml で上書きする
 # （compose.override.yml は Git 管理外。compose.override.yml.example を写して使う）。
+#
+# 配信は danything/genkan のリバースプロキシ越し。先に genkan を起動しておくこと:
+#   curl -sf https://raw.githubusercontent.com/danything/genkan/main/init.sh | sh -s
 services:
   yuzuriha:
     build: .
-    ports:
-      - "5173:5173"
+    # ポートは公開しない。genkan (caddy-docker-proxy) がホスト名で振り分ける。
+    # 開くのは https://yuzuriha.localhost
+    labels:
+      caddy: yuzuriha.localhost
+      caddy.reverse_proxy: "{{upstreams 5173}}"
+    networks: [default, proxy]
     environment:
       TZ: Asia/Tokyo
       # 空なら定期ビルドをしない。動かすときは "0 9 * * *" のように入れる
@@ -12,3 +19,8 @@ services:
     volumes:
       # 取得結果と map.json。消してもビルドし直せる
       - ./data:/usr/src/app/data
+
+networks:
+  # genkan が作る共有ネットワーク
+  proxy:
+    external: true
