@@ -5,10 +5,10 @@
  * 結果は geocode-cache.json に貯めて、次回以降は問い合わせない。
  */
 
+import { sleep, USER_AGENT } from "./sources/common.ts";
+
 const ENDPOINT = "https://msearch.gsi.go.jp/address-search/AddressSearch";
 const CACHE_FILE = "data/geocode-cache.json";
-const USER_AGENT =
-	"zero-owner/1.0 (personal map project; +https://github.com/5ym/zero-owner)";
 const DELAY_MS = Number(Bun.env.GEOCODE_DELAY_MS ?? 500);
 
 export type GeoHit = {
@@ -19,8 +19,6 @@ export type GeoHit = {
 } | null;
 
 export type GeoCache = Record<string, GeoHit>;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * 掲載住所は表記がまちまちなので、検索に通る形に均す。

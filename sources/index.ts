@@ -3,7 +3,7 @@
  */
 
 import type { GeoCache } from "../geocode.ts";
-import type { MapProperty } from "../types.ts";
+import type { SourceProperty } from "../types.ts";
 import * as fieldmatching from "./fieldmatching.ts";
 import * as ieichiba from "./ieichiba.ts";
 import * as makedosan from "./makedosan.ts";
@@ -25,7 +25,7 @@ export type Source<Raw = unknown> = {
 	toMapProperties: (
 		raw: Raw[],
 		geo: GeoCache,
-	) => { properties: MapProperty[]; unmapped: number; filtered?: number };
+	) => { properties: SourceProperty[]; unmapped: number; filtered?: number };
 };
 
 // biome-ignore lint/suspicious/noExplicitAny: 取得元ごとに生データの型が違う
@@ -107,5 +107,3 @@ export const SOURCES: AnySource[] = [
 
 export const findSource = (command: string): AnySource | undefined =>
 	SOURCES.find((source) => source.command === command);
-
-export { generateCsv } from "./zero-estate.ts";

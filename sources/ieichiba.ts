@@ -9,7 +9,17 @@
  */
 
 import { type GeoCache, normalizeAddress } from "../geocode.ts";
-import type { MapProperty } from "../types.ts";
+import type { SourceProperty } from "../types.ts";
+import {
+	getText,
+	jstToIso,
+	parsePrice,
+	readRaw as readRawFile,
+	saveRaw,
+	sleep,
+	splitAddress,
+	stripTags,
+} from "./common.ts";
 
 const BASE = "https://ieichiba.com";
 const SOURCE = "ieichiba";
@@ -17,10 +27,6 @@ const RAW_FILE = "data/ieichiba.json";
 /** 0円〜100万円未満のタグ。ここから価格で絞る */
 const LIST_PATH = "/tags/0-100manyen";
 const MAX_PAGES = 30;
-
-const USER_AGENT =
-	"zero-owner/1.0 (personal map project; +https://github.com/5ym/zero-owner)";
-const DELAY_MS = Number(Bun.env.FETCH_DELAY_MS ?? 700);
 /** これ以下の価格だけ地図に載せる（円） */
 const MAX_PRICE = Number(Bun.env.IE_MAX_PRICE ?? 0);
 
@@ -37,44 +43,13 @@ export type IeichibaItem = {
 	postDate: string | null;
 };
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+type Card = Omit<IeichibaItem, "lat" | "lng" | "postDate">;
 
-const decode = (text: string) =>
-	text
-		.replace(/&amp;/g, "&")
-		.replace(/&lt;/g, "<")
-		.replace(/&gt;/g, ">")
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;/g, "'")
-		.replace(/\s+/g, " ")
-		.trim();
-
-/** 「50万円」「0円」「1,200万円」を円に直す */
-export function parsePrice(text: string): number {
-	const normalized = text.replace(/[０-９]/g, (c) =>
-		String.fromCharCode(c.charCodeAt(0) - 0xfee0),
-	);
-	const oku = normalized.match(/([\d.,]+)\s*億円/);
-	if (oku) return Math.round(Number(oku[1].replace(/,/g, "")) * 100_000_000);
-	const man = normalized.match(/([\d.,]+)\s*万円/);
-	if (man) return Math.round(Number(man[1].replace(/,/g, "")) * 10_000);
-	const yen = normalized.match(/([\d,]+)\s*円/);
-	return yen ? Number(yen[1].replace(/,/g, "")) : Number.NaN;
-}
-
-async function get(path: string): Promise<string> {
-	const res = await fetch(`${BASE}${path}`, {
-		headers: { "user-agent": USER_AGENT },
-	});
-	if (!res.ok) throw new Error(`家いちば ${path}: HTTP ${res.status}`);
-	return await res.text();
-}
+const get = (path: string) => getText(`${BASE}${path}`, `家いちば ${path}`);
 
 /** 一覧ページの物件カードを読む */
-function parseCards(
-	html: string,
-): Omit<IeichibaItem, "lat" | "lng" | "postDate">[] {
-	const cards: Omit<IeichibaItem, "lat" | "lng" | "postDate">[] = [];
+function parseCards(html: string): Card[] {
+	const cards: Card[] = [];
 
 	for (const chunk of html.split('<a href="/project/').slice(1)) {
 		const href = (chunk.match(/^([^"]+)"/) ?? [])[1];
@@ -86,14 +61,14 @@ function parseCards(
 		cards.push({
 			id,
 			url: `${BASE}/project/${href}`,
-			title: decode((chunk.match(/<h3[^>]*>([^<]+)<\/h3>/) ?? [])[1] ?? ""),
+			title: stripTags((chunk.match(/<h3[^>]*>([^<]+)<\/h3>/) ?? [])[1] ?? ""),
 			price: parsePrice(priceText),
-			address: decode(
+			address: stripTags(
 				(chunk.match(/property__list-item-address[^>]*>([^<]+)/) ?? [])[1] ??
 					"",
 			),
 			category:
-				decode(
+				stripTags(
 					(chunk.match(/categories__item[^>]*>([^<]+)</) ?? [])[1] ?? "",
 				) || null,
 			image: (chunk.match(/<img src="([^"]+)"/) ?? [])[1] ?? null,
@@ -118,7 +93,7 @@ function parseDetail(
 }
 
 export async function fetchIeichiba(): Promise<IeichibaItem[]> {
-	const cards: Omit<IeichibaItem, "lat" | "lng" | "postDate">[] = [];
+	const cards: Card[] = [];
 
 	for (let page = 1; page <= MAX_PAGES; page++) {
 		const html = await get(
@@ -127,7 +102,7 @@ export async function fetchIeichiba(): Promise<IeichibaItem[]> {
 		const found = parseCards(html);
 		if (found.length === 0) break;
 		cards.push(...found);
-		await sleep(DELAY_MS);
+		await sleep();
 	}
 
 	// 大半は有償なので、対象になったものだけ詳細を開く
@@ -140,37 +115,29 @@ export async function fetchIeichiba(): Promise<IeichibaItem[]> {
 
 	const items: IeichibaItem[] = [];
 	for (const card of targets) {
-		await sleep(DELAY_MS);
+		await sleep();
 		const detail = await get(card.url.replace(BASE, ""));
 		items.push({ ...card, ...parseDetail(detail) });
 	}
 
-	await Bun.write(RAW_FILE, JSON.stringify(items, null, "\t"));
-	console.log(`${RAW_FILE} 保存完了 (${items.length} 件)`);
-	return items;
+	return await saveRaw(RAW_FILE, items);
 }
 
-export async function readRaw(): Promise<IeichibaItem[]> {
-	const file = Bun.file(RAW_FILE);
-	if (!(await file.exists())) return [];
-	return JSON.parse(await file.text()) as IeichibaItem[];
-}
+export const readRaw = () => readRawFile<IeichibaItem>(RAW_FILE);
 
-const PREF_RE =
-	/^(北海道|東京都|京都府|大阪府|.{2,3}県)(.*?郡.*?[町村]|.*?[市区町村])?(.*)$/;
+const hasCoords = (item: IeichibaItem) =>
+	Number.isFinite(item.lat) && Number.isFinite(item.lng);
+
+const queryOf = (item: IeichibaItem) => {
+	const { prefecture, city, rest } = splitAddress(item.address);
+	return normalizeAddress(prefecture, city, rest);
+};
 
 /** 詳細ページに座標が無かったものだけ住所検索に回す */
 export function addressesOf(items: IeichibaItem[]): string[] {
 	return items
-		.filter((item) => !Number.isFinite(item.lat) || !Number.isFinite(item.lng))
-		.map((item) => {
-			const parts = item.address.match(PREF_RE);
-			return normalizeAddress(
-				parts?.[1] ?? "",
-				parts?.[2] ?? "",
-				parts?.[3] ?? "",
-			);
-		})
+		.filter((item) => !hasCoords(item))
+		.map(queryOf)
 		.filter(Boolean);
 }
 
@@ -178,23 +145,19 @@ export function toMapProperties(
 	items: IeichibaItem[],
 	geo: GeoCache = {},
 ): {
-	properties: MapProperty[];
+	properties: SourceProperty[];
 	unmapped: number;
 } {
-	const properties: MapProperty[] = [];
+	const properties: SourceProperty[] = [];
 	let unmapped = 0;
 
 	for (const item of items) {
-		const parts = item.address.match(PREF_RE);
-		let lat = item.lat;
-		let lng = item.lng;
+		const { prefecture, city, rest } = splitAddress(item.address);
+		let { lat, lng } = item;
 		let approx: string | null = null;
 
-		if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-			const hit =
-				geo[
-					normalizeAddress(parts?.[1] ?? "", parts?.[2] ?? "", parts?.[3] ?? "")
-				];
+		if (!hasCoords(item)) {
+			const hit = geo[queryOf(item)];
 			if (!hit) {
 				unmapped++;
 				continue;
@@ -215,10 +178,9 @@ export function toMapProperties(
 			)
 				? "土地・建物"
 				: "土地のみ",
-			prefecture: parts?.[1] ?? "",
-			city: parts?.[2] ?? "",
-			region: "",
-			address: parts?.[3] ?? "",
+			prefecture,
+			city,
+			address: rest,
 			lat: lat as number,
 			lng: lng as number,
 			price: item.price,
@@ -226,9 +188,7 @@ export function toMapProperties(
 			views: 0,
 			favorites: 0,
 			notes: item.category ? [item.category] : [],
-			publishedAt: new Date(
-				`${item.postDate ?? "2020-01-01"}T00:00:00+09:00`,
-			).toISOString(),
+			publishedAt: jstToIso(item.postDate ?? "2020-01-01"),
 			image: item.image,
 			approx,
 		});

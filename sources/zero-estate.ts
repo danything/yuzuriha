@@ -6,7 +6,8 @@
  */
 
 import { type GeoCache, normalizeAddress } from "../geocode.ts";
-import type { MapProperty } from "../types.ts";
+import type { SourceProperty } from "../types.ts";
+import { readRaw as readRawFile, saveRaw, toNumber } from "./common.ts";
 
 const SOURCE = "zero.estate";
 const RAW_FILE = "data/zero-estate.json";
@@ -51,9 +52,8 @@ export type Items = {
 	favoriteCount: number;
 };
 
-// -----------------------------
-// 1. ログインして Cookie を取得
-// -----------------------------
+/* ---------- ログインして Cookie を取得 ---------- */
+
 async function loginAndGetCookie(email: string, password: string) {
 	const res = await fetch("https://zero.estate/api/auth/sign-in/email", {
 		method: "POST",
@@ -94,11 +94,10 @@ async function loginAndGetCookie(email: string, password: string) {
 	return cookie;
 }
 
-// -----------------------------
-// 2. API から全件取得して data.json に保存
-// -----------------------------
+/* ---------- 全件取得して生データを保存 ---------- */
+
 export async function fetchZeroEstate() {
-	// 認証情報は環境変数から。ローカルでは .env、CI では Actions の Secrets を使う
+	// 認証情報は環境変数から。手元では compose.override.yml、CI では Actions の Secrets
 	const email = Bun.env.EMAIL;
 	const password = Bun.env.PASSWORD;
 	if (!email || !password) {
@@ -166,17 +165,16 @@ export async function fetchZeroEstate() {
 		page++;
 	}
 
-	await Bun.write(RAW_FILE, JSON.stringify(results, null, "\t"));
-	console.log(`${RAW_FILE} 保存完了 (${results.length} 件)`);
-	return results;
+	return await saveRaw(RAW_FILE, results);
 }
 
-// -----------------------------
-// 3. data.json を読み込んで地図用 JSON を生成
-// -----------------------------
+export const readRaw = () => readRawFile<Items>(RAW_FILE);
 
-/** 画像はすべてこの R2 バケット配下なので、共通部分は JSON から省く */
-const IMAGE_BASE = "https://pub-a219a93f532e41ea8c7013e00d34c61b.r2.dev/";
+/* ---------- 地図用に整える ---------- */
+
+/** 画像はすべてこの R2 バケット配下なので、共通部分は map.json から省く */
+export const IMAGE_BASE =
+	"https://pub-a219a93f532e41ea8c7013e00d34c61b.r2.dev/";
 
 /** specialNotes は JSON 文字列の配列として入っている */
 function parseNotes(raw: string | null): string[] {
@@ -189,13 +187,6 @@ function parseNotes(raw: string | null): string[] {
 	} catch {
 		return [];
 	}
-}
-
-/** null や空文字を Number() に渡すと 0 になってしまうので明示的に弾く */
-function toCoord(value: string | null | undefined): number {
-	if (value === null || value === undefined || value.trim() === "")
-		return Number.NaN;
-	return Number(value);
 }
 
 function pickImage(images: PropertyImage[] | undefined): string | null {
@@ -222,15 +213,15 @@ export function toMapProperties(
 	items: Items[],
 	geo: GeoCache = {},
 ): {
-	properties: MapProperty[];
+	properties: SourceProperty[];
 	unmapped: number;
 } {
-	const properties: MapProperty[] = [];
+	const properties: SourceProperty[] = [];
 	let unmapped = 0;
 
 	for (const item of items) {
-		let lat = toCoord(item.latitude ?? item.approximateLatitude);
-		let lng = toCoord(item.longitude ?? item.approximateLongitude);
+		let lat = toNumber(item.latitude ?? item.approximateLatitude);
+		let lng = toNumber(item.longitude ?? item.approximateLongitude);
 		let approx: string | null = null;
 
 		// 掲載側に座標が無ければ、住所検索で引いた結果を使う
@@ -253,7 +244,6 @@ export function toMapProperties(
 			type: item.propertyType,
 			prefecture: item.prefecture ?? "",
 			city: item.city ?? "",
-			region: item.region ?? "",
 			address: item.address?.replace(/\s*\n\s*/g, " ") ?? "",
 			lat,
 			lng,
@@ -269,34 +259,4 @@ export function toMapProperties(
 	}
 
 	return { properties, unmapped };
-}
-
-export async function readRaw(): Promise<Items[]> {
-	const file = Bun.file(RAW_FILE);
-	if (!(await file.exists())) return [];
-	return JSON.parse(await file.text()) as Items[];
-}
-
-/** 旧形式の CSV。互換のために残してある */
-export async function generateCsv() {
-	const items = await readRaw();
-	const csvFile = Bun.file("data/map.csv");
-	const writer = csvFile.writer();
-
-	writer.write("title,url,status,longitude,latitude,address\n");
-
-	for (const json of items) {
-		const longitude = json.longitude ?? json.approximateLongitude ?? "";
-		const latitude = json.latitude ?? json.approximateLatitude ?? "";
-		const safeAddress =
-			json.address?.replace(/\n/g, "\\n") ??
-			`${json.prefecture ?? ""}${json.city ?? ""}`;
-
-		writer.write(
-			`"${json.title}",https://zero.estate/properties/${json.id},${json.status},${longitude},${latitude},${safeAddress}\n`,
-		);
-	}
-
-	writer.end();
-	console.log("CSV 出力完了");
 }

@@ -1,8 +1,9 @@
 /**
  * フロントを assets/ に書き出す。
  *
- * maplibre-gl はバンドルに含めない。自前で minify すると配布物より
- * 100KB (gzip) ほど太るので、dist の .mjs をそのまま置き、
+ * maplibre-gl はバンドルに含めない。描画の本体は Web Worker と共通コード
+ * (maplibre-gl-shared.mjs) を分け合っていて、自前でバンドルしても worker 用の
+ * chunk は結局別に配ることになる。dist の .mjs をそのまま置いて、
  * index.html の importmap で解決させる。
  */
 

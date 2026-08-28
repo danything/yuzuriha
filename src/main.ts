@@ -1,9 +1,9 @@
 /*
- * 0円物件を衛星写真の地図に載せる。データは data/map.json (app.ts が生成)。
+ * 0円物件を衛星写真の地図に載せる。データは build.ts が書き出す map.json。
  *
- * maplibre-gl はバンドルに含めず external にしてある。自前で minify すると
- * 配布物より 100KB ほど太るので、dist の .mjs をそのまま assets/ に置き、
- * index.html の importmap で解決させている。
+ * maplibre-gl はバンドルに含めず external にしてある。描画の本体は Web Worker と
+ * 共通コードを分け合っているので、まとめても worker 用の chunk は別に要る。
+ * dist の .mjs をそのまま assets/ に置き、index.html の importmap で解決させている。
  */
 
 import type { Feature, Point } from "geojson";
@@ -11,8 +11,6 @@ import {
 	AttributionControl,
 	type GeoJSONSource,
 	LngLatBounds,
-	type LngLatLike,
-	type MapGeoJSONFeature,
 	Map as MapLibreMap,
 	NavigationControl,
 	Popup,
@@ -21,17 +19,35 @@ import {
 } from "maplibre-gl";
 import type { MapProperty } from "../types.ts";
 
-/** app.ts が書き出す map.json の形 */
+/** build.ts が書き出す map.json の形 */
 type MapData = {
 	generatedAt: string;
 	total: number;
 	unmapped: number;
 	imageBase: string;
+	/** 北から南の並び。build.ts が並べたものをそのまま使う */
+	regions: string[];
 	sources: { name: string; label: string; url: string; count: number }[];
 	properties: MapProperty[];
 };
 
 type SortKey = "new" | "views" | "favorites";
+
+/** チップで絞り込む4つの項目。State のキーと DOM の id をここで結び付ける */
+type ChipKey = "statuses" | "sources" | "types" | "notes";
+
+type ChipGroup = {
+	key: ChipKey;
+	/** 並べる先と「すべて」ボタンの id */
+	box: string;
+	reset: string;
+	/** その物件が当てはまる値。特記事項だけ1件が複数持つ */
+	valuesOf: (property: MapProperty) => string[];
+	/** 既定は data.properties から集めた値を五十音順に並べる */
+	values?: () => string[];
+	label?: (value: string) => string;
+	color?: (value: string) => string;
+};
 
 type State = {
 	q: string;
@@ -65,6 +81,37 @@ const FALLBACK_COLOR = "#94a3b8";
 const DEFAULT_STATUSES = ["募集中"];
 const ACCENT = "#34d399";
 const LIST_LIMIT = 120;
+
+const CHIP_GROUPS: ChipGroup[] = [
+	{
+		key: "statuses",
+		box: "statuses",
+		reset: "status-reset",
+		valuesOf: (property) => [property.status],
+		color: (value) => statusColor(value),
+	},
+	{
+		key: "sources",
+		box: "sources",
+		reset: "source-reset",
+		valuesOf: (property) => [property.source],
+		// 取得元は map.json に出ている順と表示名で出す
+		values: () => data.sources.map((source) => source.name),
+		label: (value) => sourceLabel(value),
+	},
+	{
+		key: "types",
+		box: "types",
+		reset: "type-reset",
+		valuesOf: (property) => [property.type],
+	},
+	{
+		key: "notes",
+		box: "notes",
+		reset: "note-reset",
+		valuesOf: (property) => property.notes,
+	},
+];
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T =>
 	document.getElementById(id) as T;
@@ -354,6 +401,7 @@ let data: MapData = {
 	total: 0,
 	unmapped: 0,
 	imageBase: "",
+	regions: [],
 	sources: [],
 	properties: [],
 };
@@ -372,30 +420,16 @@ const byId = new Map<string, MapProperty>();
 let popup: Popup | null = null;
 let shownId: string | null = null;
 
-/** skip に渡した条件だけ無視して判定する (チップの件数表示に使う) */
-function matches(property: MapProperty, skip?: string): boolean {
-	if (
-		skip !== "status" &&
-		state.statuses.size &&
-		!state.statuses.has(property.status)
-	) {
-		return false;
+/** skip に渡した項目だけ無視して判定する (チップの件数表示に使う) */
+function matches(property: MapProperty, skip?: ChipKey): boolean {
+	for (const group of CHIP_GROUPS) {
+		const selected = state[group.key];
+		if (group.key === skip || selected.size === 0) continue;
+		if (!group.valuesOf(property).some((value) => selected.has(value)))
+			return false;
 	}
-	if (skip !== "type" && state.types.size && !state.types.has(property.type))
-		return false;
-	if (
-		skip !== "source" &&
-		state.sources.size &&
-		!state.sources.has(property.source)
-	)
-		return false;
-	if (skip !== "region" && state.region && property.region !== state.region)
-		return false;
-	if (skip !== "pref" && state.pref && property.prefecture !== state.pref)
-		return false;
-	if (skip !== "note" && state.notes.size) {
-		if (!property.notes.some((note) => state.notes.has(note))) return false;
-	}
+	if (state.region && property.region !== state.region) return false;
+	if (state.pref && property.prefecture !== state.pref) return false;
 	if (state.q) {
 		const haystack =
 			`${property.title} ${property.address} ${property.prefecture} ${property.city}`.toLowerCase();
@@ -564,32 +598,18 @@ function observeThumbs(list: HTMLElement): void {
 }
 
 function renderChipCounts() {
-	for (const [box, skip] of [
-		["statuses", "status"],
-		["sources", "source"],
-		["types", "type"],
-		["notes", "note"],
-	]) {
-		const counts = new Map();
+	for (const group of CHIP_GROUPS) {
+		const counts = new Map<string, number>();
 		for (const property of data.properties) {
-			if (!matches(property, skip)) continue;
-			const values =
-				skip === "note"
-					? property.notes
-					: skip === "status"
-						? [property.status]
-						: skip === "source"
-							? [property.source]
-							: [property.type];
-			for (const value of values)
+			if (!matches(property, group.key)) continue;
+			for (const value of group.valuesOf(property)) {
 				counts.set(value, (counts.get(value) ?? 0) + 1);
+			}
 		}
-		for (const chip of $(box).querySelectorAll<HTMLElement>(".chip")) {
+		for (const chip of $(group.box).querySelectorAll<HTMLElement>(".chip")) {
+			const count = counts.get(chip.dataset.value ?? "") ?? 0;
 			const countEl = chip.querySelector(".chip__count");
-			if (countEl)
-				countEl.textContent = (
-					counts.get(chip.dataset.value) ?? 0
-				).toLocaleString();
+			if (countEl) countEl.textContent = count.toLocaleString();
 		}
 	}
 }
@@ -739,53 +759,29 @@ function update() {
 const uniqueSorted = (values: (string | null | undefined)[]): string[] =>
 	[...new Set(values.filter((v): v is string => Boolean(v)))].sort();
 
-function chipHtml(
-	value: string,
-	count: string | number,
-	pressed: boolean,
-	color: string | null,
-	label: string = value,
-): string {
+function chipHtml(group: ChipGroup, value: string): string {
+	const color = group.color?.(value);
 	const dot = color ? `<span class="chip__dot"></span>` : "";
-	return `<button type="button" class="chip" data-value="${escapeHtml(value)}" aria-pressed="${pressed}"${
+	const label = group.label?.(value) ?? value;
+	return `<button type="button" class="chip" data-value="${escapeHtml(value)}" aria-pressed="${state[group.key].has(value)}"${
 		color ? ` style="--chip:${color}"` : ""
-	}>${dot}${escapeHtml(label)}<span class="chip__count">${count}</span></button>`;
+	}>${dot}${escapeHtml(label)}<span class="chip__count"></span></button>`;
 }
 
 function buildControls() {
 	const properties = data.properties;
 
-	const statuses = uniqueSorted(properties.map((p) => p.status));
-	$("statuses").innerHTML = statuses
-		.map((s) => chipHtml(s, "", state.statuses.has(s), statusColor(s)))
-		.join("");
+	for (const group of CHIP_GROUPS) {
+		const values =
+			group.values?.() ?? uniqueSorted(properties.flatMap(group.valuesOf));
+		$(group.box).innerHTML = values
+			.map((value) => chipHtml(group, value))
+			.join("");
+	}
 
-	$("sources").innerHTML = data.sources
-		.map((source) =>
-			chipHtml(
-				source.name,
-				"",
-				state.sources.has(source.name),
-				null,
-				source.label,
-			),
-		)
-		.join("");
-
-	const types = uniqueSorted(properties.map((p) => p.type));
-	$("types").innerHTML = types
-		.map((t) => chipHtml(t, "", state.types.has(t), null))
-		.join("");
-
-	const notes = uniqueSorted(properties.flatMap((p) => p.notes));
-	$("notes").innerHTML = notes
-		.map((n) => chipHtml(n, "", state.notes.has(n), null))
-		.join("");
-
-	const regions = uniqueSorted(properties.map((p) => p.region));
 	$<HTMLSelectElement>("region").innerHTML =
 		`<option value="">すべて</option>` +
-		regions
+		data.regions
 			.map((r) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`)
 			.join("");
 	$<HTMLSelectElement>("region").value = state.region;
@@ -828,12 +824,8 @@ function buildPrefOptions() {
 	$<HTMLSelectElement>("pref").value = state.pref;
 }
 
-function wireChipGroup(
-	boxId: string,
-	key: "statuses" | "sources" | "types" | "notes",
-	resetId: string,
-): void {
-	$(boxId).addEventListener("click", (event: Event) => {
+function wireChipGroup({ key, box, reset }: ChipGroup): void {
+	$(box).addEventListener("click", (event: Event) => {
 		const chip = (event.target as HTMLElement).closest<HTMLButtonElement>(
 			"button[data-value]",
 		);
@@ -845,9 +837,9 @@ function wireChipGroup(
 		update();
 	});
 
-	$(resetId).addEventListener("click", () => {
+	$(reset).addEventListener("click", () => {
 		state[key].clear();
-		for (const chip of $(boxId).querySelectorAll<HTMLElement>(".chip")) {
+		for (const chip of $(box).querySelectorAll<HTMLElement>(".chip")) {
 			chip.setAttribute("aria-pressed", "false");
 		}
 		update();
@@ -855,10 +847,7 @@ function wireChipGroup(
 }
 
 function wireEvents() {
-	wireChipGroup("statuses", "statuses", "status-reset");
-	wireChipGroup("types", "types", "type-reset");
-	wireChipGroup("sources", "sources", "source-reset");
-	wireChipGroup("notes", "notes", "note-reset");
+	for (const group of CHIP_GROUPS) wireChipGroup(group);
 
 	$<HTMLSelectElement>("region").addEventListener("change", (event: Event) => {
 		state.region = (event.target as HTMLSelectElement).value;

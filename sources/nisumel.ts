@@ -7,7 +7,18 @@
  */
 
 import { type GeoCache, normalizeAddress } from "../geocode.ts";
-import type { MapProperty } from "../types.ts";
+import type { SourceProperty } from "../types.ts";
+import {
+	jstToIso,
+	parsePrice,
+	readRaw as readRawFile,
+	saveRaw,
+	splitAddress,
+	stripTags,
+	type WpPost,
+	wpImage,
+	wpPosts,
+} from "./common.ts";
 
 const BASE = "https://ichi-estate.com";
 const SOURCE = "nisumel";
@@ -15,58 +26,27 @@ const RAW_FILE = "data/nisumel.json";
 /** 《住居・建物》《土地・宅地》《農地・山林》。地域カテゴリや読み物は含めない */
 const CATEGORIES = "23,24,25";
 
-const USER_AGENT =
-	"zero-owner/1.0 (personal map project; +https://github.com/5ym/zero-owner)";
-
-export type NisumelPost = {
-	id: number;
-	date: string;
-	link: string;
-	title: { rendered: string };
-	content: { rendered: string };
-	_embedded?: { "wp:featuredmedia"?: { source_url?: string }[] };
-};
+export type NisumelPost = WpPost;
 
 export async function fetchNisumel(): Promise<NisumelPost[]> {
-	const params = new URLSearchParams({
-		categories: CATEGORIES,
-		per_page: "100",
-		_embed: "wp:featuredmedia",
-	});
-	const res = await fetch(`${BASE}/wp-json/wp/v2/posts?${params}`, {
-		headers: { "user-agent": USER_AGENT, accept: "application/json" },
-	});
-	if (!res.ok) throw new Error(`NISUMEL: HTTP ${res.status}`);
-
-	const posts = (await res.json()) as NisumelPost[];
-	await Bun.write(RAW_FILE, JSON.stringify(posts, null, "\t"));
-	console.log(`${RAW_FILE} 保存完了 (${posts.length} 件)`);
-	return posts;
+	const { posts } = await wpPosts<NisumelPost>(
+		BASE,
+		{ categories: CATEGORIES },
+		"NISUMEL",
+	);
+	return await saveRaw(RAW_FILE, posts);
 }
 
-export async function readRaw(): Promise<NisumelPost[]> {
-	const file = Bun.file(RAW_FILE);
-	if (!(await file.exists())) return [];
-	return JSON.parse(await file.text()) as NisumelPost[];
-}
+export const readRaw = () => readRawFile<NisumelPost>(RAW_FILE);
 
 /* ---------- 本文の解析 ---------- */
-
-const clean = (html: string) =>
-	html
-		.replace(/<[^>]*>/g, "")
-		.replace(/&nbsp;/g, " ")
-		.replace(/&#8212;/g, "-")
-		.replace(/&amp;/g, "&")
-		.replace(/\s+/g, " ")
-		.trim();
 
 /** 物件概要のテーブルは <tr> に「項目セル・値セル」が並んでいる */
 function summary(html: string): Record<string, string> {
 	const map: Record<string, string> = {};
 	for (const row of html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)) {
 		const cells = [...row[1].matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/g)].map(
-			(c) => clean(c[1]),
+			(c) => stripTags(c[1]),
 		);
 		if (cells.length >= 2 && cells[0]) map[cells[0]] = cells[1];
 	}
@@ -79,16 +59,10 @@ function titleParts(rendered: string): {
 	prefecture: string;
 	city: string;
 } {
-	const title = clean(rendered);
+	const title = stripTags(rendered);
 	const head = title.split(/[｜|]/)[0].replace(/^\s*\d+\.\s*/, "");
-	const match = head.match(
-		/(北海道|東京都|京都府|大阪府|.{2,3}県)\s*(.*?[市区町村])?/,
-	);
-	return {
-		title,
-		prefecture: match?.[1] ?? "",
-		city: match?.[2] ?? "",
-	};
+	const { prefecture, city } = splitAddress(head);
+	return { title, prefecture, city };
 }
 
 export function addressOf(post: NisumelPost): string {
@@ -98,19 +72,11 @@ export function addressOf(post: NisumelPost): string {
 	return normalizeAddress(prefecture, city, rest);
 }
 
-function priceOf(text: string): number {
-	const normalized = (text ?? "").replace(/[０-９]/g, (c) =>
-		String.fromCharCode(c.charCodeAt(0) - 0xfee0),
-	);
-	const yen = normalized.match(/([\d,]+)\s*円/);
-	return yen ? Number(yen[1].replace(/,/g, "")) : 0;
-}
-
 export function toMapProperties(
 	posts: NisumelPost[],
 	geo: GeoCache = {},
-): { properties: MapProperty[]; unmapped: number } {
-	const properties: MapProperty[] = [];
+): { properties: SourceProperty[]; unmapped: number } {
+	const properties: SourceProperty[] = [];
 	let unmapped = 0;
 
 	for (const post of posts) {
@@ -142,19 +108,18 @@ export function toMapProperties(
 					: (category ?? "その他"),
 			prefecture,
 			city,
-			region: "",
 			address: table.所在地 ?? "",
 			lat: hit.lat,
 			lng: hit.lng,
-			price: priceOf(table.価格 ?? ""),
+			price: parsePrice(table.価格 ?? "", 0),
 			builtYear: null,
 			views: 0,
 			favorites: 0,
 			notes: [table.現況, table.地目].filter(
 				(n): n is string => Boolean(n) && n !== "-",
 			),
-			publishedAt: new Date(`${post.date}+09:00`).toISOString(),
-			image: post._embedded?.["wp:featuredmedia"]?.[0]?.source_url ?? null,
+			publishedAt: jstToIso(post.date),
+			image: wpImage(post),
 			approx: hit.title,
 		});
 	}

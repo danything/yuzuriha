@@ -9,6 +9,7 @@ export type MapProperty = {
 	type: string;
 	prefecture: string;
 	city: string;
+	/** 地方。build.ts が都道府県から埋める */
 	region: string;
 	address: string;
 	lat: number;
@@ -25,3 +26,10 @@ export type MapProperty = {
 	/** 座標を住所から推定した場合、一致した住所。掲載元の座標を使ったときは null */
 	approx: string | null;
 };
+
+/**
+ * 取得元が組み立てる物件。
+ * 地方はどの取得元も持っていない（持っていても揺れている）ので、
+ * 都道府県から build.ts が埋める。
+ */
+export type SourceProperty = Omit<MapProperty, "region">;

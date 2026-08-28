@@ -10,18 +10,22 @@
  */
 
 import { type GeoCache, normalizeAddress } from "../geocode.ts";
-import type { MapProperty } from "../types.ts";
+import type { SourceProperty } from "../types.ts";
+import {
+	DELAY_MS,
+	jstToIso,
+	readRaw as readRawFile,
+	saveRaw,
+	sleep,
+	toNumber,
+	USER_AGENT,
+} from "./common.ts";
 
 const BASE = "https://fieldmatching.klc1809.com";
 const SEARCH = `${BASE}/api/property/search`;
 const SOURCE = "fieldmatching";
 const RAW_FILE = "data/fieldmatching.json";
 
-/** 名乗ったうえで間隔を空けて取りに行く */
-// ヘッダに非ASCIIは入れられないので英字で名乗る
-const USER_AGENT =
-	"zero-owner/1.0 (personal map project; +https://github.com/5ym/zero-owner)";
-const DELAY_MS = Number(Bun.env.FETCH_DELAY_MS ?? 700);
 /** 取りこぼしを埋めるために試す並び順 */
 const SORTS = [1, 2, 3, 4];
 const PREFECTURES = Array.from({ length: 47 }, (_, i) => String(i + 1));
@@ -64,8 +68,6 @@ type SearchResponse = {
 		data: FieldMatchingItem[];
 	};
 };
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 type Query = { page: number; sort: number; prefecture_id?: string[] };
 
@@ -122,7 +124,7 @@ export async function fetchFieldMatching(): Promise<FieldMatchingItem[]> {
 			collect(first.data.data);
 
 			for (let page = 2; page <= first.data.last_page; page++) {
-				await sleep(DELAY_MS);
+				await sleep();
 				const res = await searchPage({
 					page,
 					sort,
@@ -135,7 +137,7 @@ export async function fetchFieldMatching(): Promise<FieldMatchingItem[]> {
 
 			// 件数が揃ったら並び順を変える必要はない
 			if (seen.size >= total) break;
-			await sleep(DELAY_MS);
+			await sleep();
 		}
 
 		expected += total;
@@ -144,7 +146,7 @@ export async function fetchFieldMatching(): Promise<FieldMatchingItem[]> {
 				`  都道府県 ${prefecture}: ${seen.size}/${total} 件しか取れませんでした`,
 			);
 		}
-		await sleep(DELAY_MS);
+		await sleep();
 	}
 
 	const items = [...found.values()];
@@ -152,26 +154,14 @@ export async function fetchFieldMatching(): Promise<FieldMatchingItem[]> {
 		`フィールドマッチング: ${items.length}/${expected} 件 (リクエスト ${requests} 回)`,
 	);
 
-	await Bun.write(RAW_FILE, JSON.stringify(items, null, "\t"));
-	console.log(`${RAW_FILE} 保存完了 (${items.length} 件)`);
-	return items;
+	return await saveRaw(RAW_FILE, items);
 }
 
-export async function readRaw(): Promise<FieldMatchingItem[]> {
-	const file = Bun.file(RAW_FILE);
-	if (!(await file.exists())) return [];
-	return JSON.parse(await file.text()) as FieldMatchingItem[];
-}
+export const readRaw = () => readRawFile<FieldMatchingItem>(RAW_FILE);
 
 /** 詳細ページの URL は id を5桁ゼロ埋めして a を付けたもの */
 const detailUrl = (id: number) =>
 	`${BASE}/property/a${String(id).padStart(5, "0")}`;
-
-function toNumber(value: string | null | undefined): number {
-	if (value === null || value === undefined || value.trim() === "")
-		return Number.NaN;
-	return Number(value);
-}
 
 /** 掲載側に座標が無いとき、住所検索の結果で補う */
 export function addressOf(item: FieldMatchingItem): string {
@@ -186,11 +176,11 @@ export function toMapProperties(
 	items: FieldMatchingItem[],
 	geo: GeoCache = {},
 ): {
-	properties: MapProperty[];
+	properties: SourceProperty[];
 	unmapped: number;
 	filtered: number;
 } {
-	const properties: MapProperty[] = [];
+	const properties: SourceProperty[] = [];
 	let unmapped = 0;
 	let filtered = 0;
 
@@ -230,7 +220,6 @@ export function toMapProperties(
 			type: item.ground_name ?? "",
 			prefecture: item.prefectures_name ?? "",
 			city: item.city ?? "",
-			region: "",
 			address: [item.block, item.address].filter(Boolean).join(""),
 			lat,
 			lng,
@@ -241,9 +230,7 @@ export function toMapProperties(
 			notes: (item.categories ?? []).map((c) => c.name),
 			// registered_at は JST の "YYYY-MM-DD HH:mm:ss"
 			publishedAt: item.registered_at
-				? new Date(
-						`${item.registered_at.replace(" ", "T")}+09:00`,
-					).toISOString()
+				? jstToIso(item.registered_at)
 				: item.created_at,
 			image: item.image_url,
 			approx,

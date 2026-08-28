@@ -6,7 +6,7 @@
  */
 
 import { fetchAll, generateJson, runBuild, runGeocode } from "./build.ts";
-import { findSource, generateCsv, SOURCES } from "./sources/index.ts";
+import { findSource, SOURCES } from "./sources/index.ts";
 
 const [command, argument] = process.argv.slice(2);
 
@@ -26,8 +26,6 @@ if (!command) {
 	await runGeocode();
 } else if (command === "json") {
 	await generateJson();
-} else if (command === "csv") {
-	await generateCsv();
 } else {
 	console.log("使い方:");
 	console.log("  bun app.ts              # 取得 → 住所検索 → map.json");
@@ -35,9 +33,6 @@ if (!command) {
 	console.log("  bun app.ts fetch <名前> # 1つの取得元だけ取得する");
 	console.log("  bun app.ts geocode      # 座標が無い物件の住所を引く");
 	console.log("  bun app.ts json         # 生データから map.json を作る");
-	console.log(
-		"  bun app.ts csv          # zero.estate の生データから CSV を作る",
-	);
 	console.log("");
 	console.log("取得元:");
 	for (const source of SOURCES) {

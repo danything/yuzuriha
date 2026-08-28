@@ -2,8 +2,9 @@
  * 地図の配信と、定期ビルド。
  *
  * ローカルの確認 (`bun run dev`) でも、自宅クラスタでの常駐でも同じものを使う。
- * 配信するのは3種類のファイルだけなので、パスから組み立てずに列挙している
- * （`./${url.pathname}` のような組み立ては `..` でリポジトリ内を読まれる）。
+ * 配信するのはページと map.json と assets/ の中身だけ。要求されたパスから
+ * ファイル名を組み立てると `..` でリポジトリ内を読まれるので、起動時に作った
+ * 一覧と照合して、載っていないものは 404 にしている。
  *
  * 圧縮は前段の Traefik に任せる。Bun.serve は自動では圧縮しない。
  */
@@ -15,37 +16,25 @@ const port = Number(Bun.env.PORT ?? 5173);
 const BUILD_CRON = Bun.env.BUILD_CRON ?? "";
 const TZ = Bun.env.TZ ?? "Asia/Tokyo";
 
+/** 1日1回しか変わらないので、TTL で当てずに毎回問い合わせて 304 を返す */
+const REVALIDATE = "public, max-age=0, must-revalidate";
+
 /** 配信するファイル。ここに無いパスは 404 */
 const ROUTES: Record<string, { path: string; cache: string }> = {
-	"/": { path: "index.html", cache: "public, max-age=0, must-revalidate" },
-	"/index.html": {
-		path: "index.html",
-		cache: "public, max-age=0, must-revalidate",
-	},
-	// 1日1回しか変わらないので、TTL で当てずに毎回問い合わせて 304 を返す
-	"/map.json": { path: OUT_FILE, cache: "public, max-age=0, must-revalidate" },
-	"/assets/main.js": { path: "assets/main.js", cache: "public, max-age=3600" },
-	"/assets/maplibre-gl.mjs": {
-		path: "assets/maplibre-gl.mjs",
-		cache: "public, max-age=86400",
-	},
-	"/assets/maplibre-gl-shared.mjs": {
-		path: "assets/maplibre-gl-shared.mjs",
-		cache: "public, max-age=86400",
-	},
-	"/assets/maplibre-gl-worker.mjs": {
-		path: "assets/maplibre-gl-worker.mjs",
-		cache: "public, max-age=86400",
-	},
-	"/assets/maplibre-gl.css": {
-		path: "assets/maplibre-gl.css",
-		cache: "public, max-age=86400",
-	},
-	"/assets/styles.css": {
-		path: "assets/styles.css",
-		cache: "public, max-age=3600",
-	},
+	"/": { path: "index.html", cache: REVALIDATE },
+	"/index.html": { path: "index.html", cache: REVALIDATE },
+	"/map.json": { path: OUT_FILE, cache: REVALIDATE },
 };
+
+// assets/ は起動時にあるものをそのまま載せる。中身は maplibre の chunk まで
+// 数えると6つあり、build-web.ts と名前を二重に持ちたくない。
+// 走査した名前としか照合しないので、パスを組み立てるのと違って `..` は入らない。
+for await (const name of new Bun.Glob("*").scan("assets")) {
+	ROUTES[`/assets/${name}`] = {
+		path: `assets/${name}`,
+		cache: "public, max-age=3600",
+	};
+}
 
 /** 中身を読まずに済ませたいので、サイズと更新時刻から作る */
 const etagOf = (size: number, mtime: number) =>
