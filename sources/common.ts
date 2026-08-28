@@ -31,7 +31,16 @@ export type WpPost = {
 	link: string;
 	title: { rendered: string };
 	content: { rendered: string };
-	_embedded?: { "wp:featuredmedia"?: { source_url?: string }[] };
+	_embedded?: {
+		"wp:featuredmedia"?: {
+			source_url?: string;
+			mime_type?: string;
+			// アイキャッチがPDFのとき、WordPress が自動生成する画像プレビュー
+			media_details?: {
+				sizes?: Record<string, { source_url?: string; mime_type?: string }>;
+			};
+		}[];
+	};
 };
 
 /** wp-json の投稿一覧。総ページ数はヘッダにしか入っていない */
@@ -55,8 +64,17 @@ export async function wpPosts<T>(
 	};
 }
 
-export const wpImage = (post: WpPost): string | null =>
-	post._embedded?.["wp:featuredmedia"]?.[0]?.source_url ?? null;
+// アイキャッチにPDFなど画像以外のファイルを設定している投稿がある。その場合
+// でも WordPress が生成する画像プレビュー（medium サイズ）があればそれを使う
+export const wpImage = (post: WpPost): string | null => {
+	const media = post._embedded?.["wp:featuredmedia"]?.[0];
+	if (!media) return null;
+	if (media.mime_type?.startsWith("image/")) return media.source_url ?? null;
+	const preview = media.media_details?.sizes?.medium;
+	return preview?.mime_type?.startsWith("image/")
+		? (preview.source_url ?? null)
+		: null;
+};
 
 /* ---------- 生データの置き場 ---------- */
 
