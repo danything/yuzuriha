@@ -311,6 +311,7 @@ let data = { properties: [], imageBase: "", total: 0, unmapped: 0 };
 let state = {
 	q: "",
 	statuses: new Set(),
+	sources: new Set(),
 	types: new Set(),
 	region: "",
 	pref: "",
@@ -332,6 +333,12 @@ function matches(property, skip) {
 		return false;
 	}
 	if (skip !== "type" && state.types.size && !state.types.has(property.type))
+		return false;
+	if (
+		skip !== "source" &&
+		state.sources.size &&
+		!state.sources.has(property.source)
+	)
 		return false;
 	if (skip !== "region" && state.region && property.region !== state.region)
 		return false;
@@ -508,6 +515,7 @@ function observeThumbs(list) {
 function renderChipCounts() {
 	for (const [box, skip] of [
 		["statuses", "status"],
+		["sources", "source"],
 		["types", "type"],
 		["notes", "note"],
 	]) {
@@ -517,7 +525,11 @@ function renderChipCounts() {
 			const values =
 				skip === "note"
 					? property.notes
-					: [skip === "status" ? property.status : property.type];
+					: skip === "status"
+						? [property.status]
+						: skip === "source"
+							? [property.source]
+							: [property.type];
 			for (const value of values)
 				counts.set(value, (counts.get(value) ?? 0) + 1);
 		}
@@ -631,6 +643,7 @@ function readState() {
 	return {
 		q: (p.get("q") ?? "").toLowerCase(),
 		statuses: st === null ? new Set(DEFAULT_STATUSES) : set("st"),
+		sources: set("src"),
 		types: set("ty"),
 		region: p.get("rg") ?? "",
 		pref: p.get("pf") ?? "",
@@ -645,6 +658,7 @@ function writeState() {
 	if (state.q) p.set("q", state.q);
 	if (!isDefaultStatuses()) p.set("st", [...state.statuses].join(","));
 	if (state.types.size) p.set("ty", [...state.types].join(","));
+	if (state.sources.size) p.set("src", [...state.sources].join(","));
 	if (state.region) p.set("rg", state.region);
 	if (state.pref) p.set("pf", state.pref);
 	if (state.notes.size) p.set("nt", [...state.notes].join(","));
@@ -663,11 +677,11 @@ function update() {
 
 const uniqueSorted = (values) => [...new Set(values.filter(Boolean))].sort();
 
-function chipHtml(value, count, pressed, color) {
+function chipHtml(value, count, pressed, color, label = value) {
 	const dot = color ? `<span class="chip__dot"></span>` : "";
 	return `<button type="button" class="chip" data-value="${escapeHtml(value)}" aria-pressed="${pressed}"${
 		color ? ` style="--chip:${color}"` : ""
-	}>${dot}${escapeHtml(value)}<span class="chip__count">${count}</span></button>`;
+	}>${dot}${escapeHtml(label)}<span class="chip__count">${count}</span></button>`;
 }
 
 function buildControls() {
@@ -676,6 +690,18 @@ function buildControls() {
 	const statuses = uniqueSorted(properties.map((p) => p.status));
 	$("statuses").innerHTML = statuses
 		.map((s) => chipHtml(s, "", state.statuses.has(s), statusColor(s)))
+		.join("");
+
+	$("sources").innerHTML = (data.sources ?? [])
+		.map((source) =>
+			chipHtml(
+				source.name,
+				"",
+				state.sources.has(source.name),
+				null,
+				source.label,
+			),
+		)
 		.join("");
 
 	const types = uniqueSorted(properties.map((p) => p.type));
@@ -757,6 +783,7 @@ function wireChipGroup(boxId, key, resetId) {
 function wireEvents() {
 	wireChipGroup("statuses", "statuses", "status-reset");
 	wireChipGroup("types", "types", "type-reset");
+	wireChipGroup("sources", "sources", "source-reset");
 	wireChipGroup("notes", "notes", "note-reset");
 
 	$("region").addEventListener("change", (event) => {
