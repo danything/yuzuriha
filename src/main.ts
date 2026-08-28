@@ -24,7 +24,6 @@ type MapData = {
 	generatedAt: string;
 	total: number;
 	unmapped: number;
-	imageBase: string;
 	/** 北から南の並び。build.ts が並べたものをそのまま使う */
 	regions: string[];
 	sources: { name: string; label: string; url: string; count: number }[];
@@ -130,12 +129,6 @@ const statusColor = (status: string): string =>
 /** 取得元の表示名。map.json の sources から引く */
 const sourceLabel = (name: string): string =>
 	data.sources.find((s) => s.name === name)?.label ?? name;
-
-// 移行前の物件は CloudFront の絶対 URL、それ以外は R2 のパスだけを持つ
-const imageUrl = (property: MapProperty): string =>
-	property.image?.startsWith("http")
-		? property.image
-		: data.imageBase + property.image;
 
 const formatDate = (iso: string): string => {
 	const d = new Date(iso);
@@ -401,7 +394,6 @@ let data: MapData = {
 	generatedAt: "",
 	total: 0,
 	unmapped: 0,
-	imageBase: "",
 	regions: [],
 	sources: [],
 	properties: [],
@@ -457,7 +449,7 @@ function filtered() {
 
 function popupHtml(property: MapProperty): string {
 	const photo = property.image
-		? `<img class="pop__photo" src="${escapeHtml(imageUrl(property))}" alt="" decoding="async">`
+		? `<img class="pop__photo" src="${escapeHtml(property.image)}" alt="" decoding="async">`
 		: "";
 	const notes = property.notes
 		.map((note) => `<span class="pop__tag">${escapeHtml(note)}</span>`)
@@ -549,7 +541,7 @@ function renderList(entries: MapProperty[]): void {
 	// 写真は原寸 (1枚 500KB 前後) なので、実際に見えた行だけ読み込む
 	const thumb = (property: MapProperty) =>
 		property.image
-			? `<img class="list__thumb" data-src="${escapeHtml(imageUrl(property))}" alt="" width="52" height="40" decoding="async">`
+			? `<img class="list__thumb" data-src="${escapeHtml(property.image)}" alt="" width="52" height="40" decoding="async">`
 			: `<span class="list__thumb"></span>`;
 
 	list.innerHTML =

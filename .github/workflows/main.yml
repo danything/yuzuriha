@@ -35,8 +35,6 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # みんなの0円物件 (zero.estate) は承諾待ちのため取得しない。
-      # 生データを作らなければ map.json にも入らない。
       # 1つの取得元が落ちても地図は出せるので、取得の失敗ではジョブを止めない
       - name: Fetch sources
         run: |

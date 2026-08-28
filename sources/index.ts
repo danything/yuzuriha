@@ -9,7 +9,6 @@ import * as ieichiba from "./ieichiba.ts";
 import * as makedosan from "./makedosan.ts";
 import * as nisumel from "./nisumel.ts";
 import * as zenkokuzeroen from "./zenkokuzeroen.ts";
-import * as zeroEstate from "./zero-estate.ts";
 
 export type Source<Raw = unknown> = {
 	/** map.json に入る識別子。物件の id もこれで前置する */
@@ -32,19 +31,6 @@ export type Source<Raw = unknown> = {
 type AnySource = Source<any>;
 
 export const SOURCES: AnySource[] = [
-	{
-		name: "zero.estate",
-		label: "みんなの0円物件",
-		url: "https://zero.estate/",
-		command: "zero",
-		fetch: zeroEstate.fetchZeroEstate,
-		readRaw: zeroEstate.readRaw,
-		addressesOf: (items) =>
-			items
-				.filter((item) => !item.latitude && !item.approximateLatitude)
-				.map(zeroEstate.addressOf),
-		toMapProperties: zeroEstate.toMapProperties,
-	},
 	{
 		name: "fieldmatching",
 		label: "フィールドマッチング",

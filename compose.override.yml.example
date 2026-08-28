@@ -2,12 +2,10 @@
 #
 #   cp compose.override.yml.example compose.override.yml
 #
-# zero.estate は承諾待ちのため、EMAIL / PASSWORD を入れても
-# 取得するのは手元で明示的に実行したときだけにすること。
 services:
   yuzuriha:
     environment:
-      EMAIL: you@example.com
-      PASSWORD: your-password
       # 毎朝9時に取得したい場合
-      # BUILD_CRON: "0 9 * * *"
+      BUILD_CRON: "0 9 * * *"
+      # 取得の間隔を広げたい場合
+      # FETCH_DELAY_MS: "1000"

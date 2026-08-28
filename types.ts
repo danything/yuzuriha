@@ -21,7 +21,7 @@ export type MapProperty = {
 	favorites: number;
 	notes: string[];
 	publishedAt: string;
-	/** 絶対 URL か、imageBase からの相対パス */
+	/** 掲載元の画像。無ければ null */
 	image: string | null;
 	/** 座標を住所から推定した場合、一致した住所。掲載元の座標を使ったときは null */
 	approx: string | null;

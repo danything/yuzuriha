@@ -7,7 +7,6 @@
 
 import { geocodeMissing, loadCache } from "./geocode.ts";
 import { SOURCES } from "./sources/index.ts";
-import { IMAGE_BASE } from "./sources/zero-estate.ts";
 import type { MapProperty } from "./types.ts";
 
 /** 生成物の置き場。取得した生データも地図が読む JSON もここに入る */
@@ -96,7 +95,6 @@ export async function generateJson() {
 			regions: Object.keys(REGIONS).filter((region) =>
 				properties.some((property) => property.region === region),
 			),
-			imageBase: IMAGE_BASE,
 			sources,
 			properties,
 		}),
