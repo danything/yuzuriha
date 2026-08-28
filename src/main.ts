@@ -51,20 +51,18 @@ const ESRI_ATTR = "Esri, Maxar, Earthstar Geographics";
 /* クラスタの件数表示に使うフォント。ラスタタイルには文字が焼き込まれているので、これだけ */
 const GLYPHS = "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf";
 
+/* 取得元をまたいで揃えた語（build.ts で正規化してある） */
 const STATUS_COLORS: Record<string, string> = {
-	// zero.estate
 	募集中: "#34d399",
+	商談中: "#fbbf24",
 	受付停止: "#fbbf24",
 	成約済み: "#f87171",
 	取引中止: "#60a5fa",
 	未公開: "#a78bfa",
-	// フィールドマッチング
-	公開中: "#34d399",
-	交渉中: "#fbbf24",
 };
 const FALLBACK_COLOR = "#94a3b8";
 /* 見たいのはたいてい募集中なので、初期表示はそれだけに絞る */
-const DEFAULT_STATUSES = ["募集中", "公開中"];
+const DEFAULT_STATUSES = ["募集中"];
 const ACCENT = "#34d399";
 const LIST_LIMIT = 120;
 

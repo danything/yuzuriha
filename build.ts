@@ -11,6 +11,19 @@ import type { MapProperty } from "./types.ts";
 /** 生成物の置き場。取得した生データも地図が読む JSON もここに入る */
 export const OUT_FILE = "data/map.json";
 
+/**
+ * 取得元ごとに言い方が違うだけで同じ状態を指すものがあるので、揃えてから地図に出す。
+ * フィールドマッチングの「公開中」は他サイトの「募集中」、
+ * 同じく「交渉中」は負動産の掲示板の「商談中」にあたる。
+ */
+const STATUS_ALIASES: Record<string, string> = {
+	公開中: "募集中",
+	交渉中: "商談中",
+};
+
+const normalizeStatus = (status: string): string =>
+	STATUS_ALIASES[status] ?? status;
+
 /** zero.estate の画像はすべてこの R2 バケット配下なので、共通部分は JSON から省く */
 const IMAGE_BASE = "https://pub-a219a93f532e41ea8c7013e00d34c61b.r2.dev/";
 
@@ -25,6 +38,9 @@ export async function generateJson() {
 
 	for (const source of SOURCES) {
 		const result = source.toMapProperties(await source.readRaw(), geo);
+		for (const property of result.properties) {
+			property.status = normalizeStatus(property.status);
+		}
 		properties.push(...result.properties);
 		unmapped += result.unmapped;
 		filtered += result.filtered ?? 0;
