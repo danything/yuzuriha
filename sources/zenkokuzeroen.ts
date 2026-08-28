@@ -14,7 +14,7 @@ import type { MapProperty } from "../types.ts";
 
 const BASE = "https://zenkokuzeroen-fudosan.com";
 const SOURCE = "zenkokuzeroen";
-const RAW_FILE = "data-zenkokuzeroen.json";
+const RAW_FILE = "data/zenkokuzeroen.json";
 
 /** 地域ごとの物件ページ */
 const AREA_PAGES = [24, 29, 31, 32, 33, 34, 35, 36];

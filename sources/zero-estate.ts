@@ -9,7 +9,7 @@ import { type GeoCache, normalizeAddress } from "../geocode.ts";
 import type { MapProperty } from "../types.ts";
 
 const SOURCE = "zero.estate";
-const RAW_FILE = "data.json";
+const RAW_FILE = "data/zero-estate.json";
 
 type PropertyImage = {
 	id: number;
@@ -280,7 +280,7 @@ export async function readRaw(): Promise<Items[]> {
 /** 旧形式の CSV。互換のために残してある */
 export async function generateCsv() {
 	const items = await readRaw();
-	const csvFile = Bun.file("map.csv");
+	const csvFile = Bun.file("data/map.csv");
 	const writer = csvFile.writer();
 
 	writer.write("title,url,status,longitude,latitude,address\n");

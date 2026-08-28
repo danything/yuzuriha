@@ -58,7 +58,8 @@ jobs:
       - name: Assemble site
         run: |
           mkdir -p site
-          cp index.html map.json site/
+          cp index.html site/
+          cp data/map.json site/
           cp -r assets site/assets
           # 独自ドメイン。これが無いと Pages の設定が毎回リセットされる
           echo "y.doany.io" > site/CNAME

@@ -47,7 +47,8 @@ spec:
 
                   # Carry over the previous raw responses and the geocode
                   # cache, so addresses already resolved are not asked again.
-                  cp -f /work/state/*.json . 2>/dev/null || true
+                  mkdir -p data
+                  cp -f /work/state/*.json data/ 2>/dev/null || true
 
                   bun install --frozen-lockfile
 
@@ -62,10 +63,11 @@ spec:
                   bun app.ts geocode
                   bun app.ts json
 
-                  cp -f data-*.json geocode-cache.json /work/state/ 2>/dev/null || true
+                  cp -f data/*.json /work/state/ 2>/dev/null || true
 
                   mkdir -p /work/site
-                  cp index.html map.json /work/site/
+                  cp index.html /work/site/
+                  cp data/map.json /work/site/
                   rm -rf /work/site/assets
                   cp -r assets /work/site/assets
                   echo "map.json: $(wc -c < map.json) bytes"

@@ -8,6 +8,9 @@ import { geocodeMissing, loadCache } from "./geocode.ts";
 import { findSource, generateCsv, SOURCES } from "./sources/index.ts";
 import type { MapProperty } from "./types.ts";
 
+/** 生成物の置き場。取得した生データも地図が読む JSON もここに入る */
+const OUT_FILE = "data/map.json";
+
 /** zero.estate の画像はすべてこの R2 バケット配下なので、共通部分は JSON から省く */
 const IMAGE_BASE = "https://pub-a219a93f532e41ea8c7013e00d34c61b.r2.dev/";
 
@@ -39,7 +42,7 @@ async function generateJson() {
 	properties.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 
 	await Bun.write(
-		"map.json",
+		OUT_FILE,
 		JSON.stringify({
 			generatedAt: new Date().toISOString(),
 			total: properties.length,
@@ -52,7 +55,7 @@ async function generateJson() {
 
 	const approx = properties.filter((p) => p.approx).length;
 	console.log(
-		`map.json 出力完了 (${properties.length} 件 / うち住所から推定 ${approx} 件 / ` +
+		`${OUT_FILE} 出力完了 (${properties.length} 件 / うち住所から推定 ${approx} 件 / ` +
 			`座標なし ${unmapped} 件${filtered ? ` / 価格で除外 ${filtered} 件` : ""})`,
 	);
 	for (const source of sources) {

@@ -13,7 +13,7 @@ import type { MapProperty } from "../types.ts";
 
 const BASE = "https://souzokutochi-kokkokizoku.com/deflug";
 const SOURCE = "makedosan";
-const RAW_FILE = "data-makedosan.json";
+const RAW_FILE = "data/makedosan.json";
 
 const USER_AGENT =
 	"zero-owner/1.0 (personal map project; +https://github.com/5ym/zero-owner)";

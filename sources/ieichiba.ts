@@ -13,7 +13,7 @@ import type { MapProperty } from "../types.ts";
 
 const BASE = "https://ieichiba.com";
 const SOURCE = "ieichiba";
-const RAW_FILE = "data-ieichiba.json";
+const RAW_FILE = "data/ieichiba.json";
 /** 0円〜100万円未満のタグ。ここから価格で絞る */
 const LIST_PATH = "/tags/0-100manyen";
 const MAX_PAGES = 30;

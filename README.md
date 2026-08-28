@@ -27,16 +27,21 @@ sources/          取得元ごとの実装（1ファイル1サイト）
   ieichiba.ts       家いちば
   zenkokuzeroen.ts  全国０円不動産
 geocode.ts        座標が無い物件を住所から引く（国土地理院API）
-k3s/              自宅クラスタ用のマニフェスト（未適用）
 types.ts          地図が読む共通の物件型
 serve.ts          ローカル確認用の静的サーバ
 index.html        地図ページ
 assets/main.js    MapLibre GL の地図・絞り込み・一覧
 assets/styles.css 見た目
-map.json          地図が読む軽量データ（生成物・コミットしない）
-data*.json        取得元ごとの生データ（同上）
-geocode-cache.json 住所検索の結果（同上）
+k3s/              自宅クラスタ用のマニフェスト（未適用）
+data/             生成物。すべて Git 管理外
+  map.json          地図が読む軽量データ
+  <取得元>.json     取得元ごとの生データ
+  geocode-cache.json 住所検索の結果
 ```
+
+`data/` は丸ごと生成物なので、消しても `bun app.ts` で作り直せる
+（住所検索のキャッシュも消えるため、その分だけ国土地理院APIを引き直す）。
+公開時は `data/map.json` をサイト直下の `/map.json` として配る。
 
 ## 使い方
 

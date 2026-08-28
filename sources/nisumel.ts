@@ -11,7 +11,7 @@ import type { MapProperty } from "../types.ts";
 
 const BASE = "https://ichi-estate.com";
 const SOURCE = "nisumel";
-const RAW_FILE = "data-nisumel.json";
+const RAW_FILE = "data/nisumel.json";
 /** 《住居・建物》《土地・宅地》《農地・山林》。地域カテゴリや読み物は含めない */
 const CATEGORIES = "23,24,25";
 

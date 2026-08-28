@@ -6,7 +6,7 @@
  */
 
 const ENDPOINT = "https://msearch.gsi.go.jp/address-search/AddressSearch";
-const CACHE_FILE = "geocode-cache.json";
+const CACHE_FILE = "data/geocode-cache.json";
 const USER_AGENT =
 	"zero-owner/1.0 (personal map project; +https://github.com/5ym/zero-owner)";
 const DELAY_MS = Number(Bun.env.GEOCODE_DELAY_MS ?? 500);

@@ -15,7 +15,7 @@ import type { MapProperty } from "../types.ts";
 const BASE = "https://fieldmatching.klc1809.com";
 const SEARCH = `${BASE}/api/property/search`;
 const SOURCE = "fieldmatching";
-const RAW_FILE = "data-fieldmatching.json";
+const RAW_FILE = "data/fieldmatching.json";
 
 /** 名乗ったうえで間隔を空けて取りに行く */
 // ヘッダに非ASCIIは入れられないので英字で名乗る
