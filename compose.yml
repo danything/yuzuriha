@@ -12,10 +12,6 @@ services:
       caddy: yuzuriha.localhost
       caddy.reverse_proxy: "{{upstreams 5173}}"
     networks: [default, proxy]
-    environment:
-      TZ: Asia/Tokyo
-      # 空なら定期ビルドをしない。動かすときは "0 9 * * *" のように入れる
-      BUILD_CRON: ""
     volumes:
       # 取得結果と map.json。消してもビルドし直せる
       - ./data:/usr/src/app/data
