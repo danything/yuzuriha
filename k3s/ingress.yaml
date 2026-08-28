@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: yuzuriha
+  namespace: yuzuriha
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls.certresolver: mydnschallenge
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - y.doany.io
+  rules:
+    # y.doany.io currently CNAMEs to GitHub Pages. Cutting over means pointing
+    # it back at the house and dropping the custom domain on the Pages side --
+    # that also ends the redirect from 5ym.github.io/zero-owner/, which is the
+    # URL アキソル was given, so it waits until they answer.
+    - host: y.doany.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: yuzuriha
+                port:
+                  number: 80

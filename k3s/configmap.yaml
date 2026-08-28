@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: yuzuriha-caddy
+  namespace: yuzuriha
+data:
+  Caddyfile: |
+    # Traefik terminates TLS, so this listens in the clear.
+    :8080 {
+        root * /srv/site
+        file_server
+
+        # map.json is ~540KB of JSON and compresses to about a seventh of that.
+        # GitHub Pages only ever offered gzip; zstd is worth having here.
+        encode zstd gzip
+
+        # The map republishes listings from other sites with permission, and
+        # part of what was promised to them is that it does not compete for
+        # their search traffic. Say so to crawlers rather than relying on the
+        # page being JS-only.
+        header {
+            X-Robots-Tag "noindex, nofollow"
+            -Server
+        }
+
+        # The data changes once a day, so revalidate rather than guess a TTL.
+        @data path /map.json
+        header @data Cache-Control "public, max-age=0, must-revalidate"
+
+        @assets path /assets/*
+        header @assets Cache-Control "public, max-age=3600"
+
+        log {
+            output stdout
+            format console
+        }
+    }

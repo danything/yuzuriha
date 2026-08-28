@@ -1,0 +1,19 @@
+# The CronJob writes here and Caddy reads from it. Two subdirectories live
+# inside: site/ is what gets served, state/ keeps the raw responses and the
+# geocode cache so a rebuild doesn't re-ask 国土地理院 for addresses it has
+# already resolved. Retained on delete because losing state/ means re-running
+# every address lookup from scratch.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: yuzuriha-site
+  namespace: yuzuriha
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path-retain
+  resources:
+    requests:
+      storage: 2Gi

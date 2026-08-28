@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yuzuriha
+  namespace: yuzuriha
+spec:
+  replicas: 1
+  # The PVC is ReadWriteOnce and the CronJob may hold it, so don't try to run
+  # two pods at once during a rollout. The site is static and comes back in a
+  # second or two, which is cheaper than arranging a handover for it.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: yuzuriha
+  template:
+    metadata:
+      labels:
+        app: yuzuriha
+    spec:
+      # The CronJob writes the files as its own uid; naming the group here has
+      # the kubelet line them up so Caddy can read them without a chown.
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: caddy
+          image: caddy:2.10-alpine
+          ports:
+            - containerPort: 8080
+          env:
+            - name: TZ
+              value: Asia/Tokyo
+            # Caddy wants somewhere to keep its data and config; with a
+            # read-only root filesystem that has to be the emptyDir.
+            - name: XDG_DATA_HOME
+              value: /tmp
+            - name: XDG_CONFIG_HOME
+              value: /tmp
+          readinessProbe:
+            httpGet:
+              path: /index.html
+              port: 8080
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /index.html
+              port: 8080
+            periodSeconds: 15
+            failureThreshold: 4
+          volumeMounts:
+            - name: config
+              mountPath: /etc/caddy
+              readOnly: true
+            # Only the site/ subdirectory is served. state/ sits in the same
+            # volume but stays out of the document root.
+            - name: data
+              mountPath: /srv/site
+              subPath: site
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: config
+          configMap:
+            name: yuzuriha-caddy
+        - name: data
+          persistentVolumeClaim:
+            claimName: yuzuriha-site
+        - name: tmp
+          emptyDir: {}

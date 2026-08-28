@@ -1,0 +1,92 @@
+# Fetches every source and rebuilds map.json onto the volume Caddy serves.
+#
+# Running this in the cluster rather than in GitHub Actions is the point:
+# 負動産の掲示板 and NISUMEL are WordPress sites on Japanese hosting that
+# answer wp-json with 403 to overseas addresses, which is why the Actions
+# build needs the 3proxy in this cluster to reach them. From here the requests
+# already come from a Japanese address, so no proxy is involved.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: yuzuriha-build
+  namespace: yuzuriha
+spec:
+  schedule: "0 9 * * *"
+  timeZone: Asia/Tokyo
+  # A run takes a few minutes; never start a second one on top of it, both
+  # because they would fight over the volume and because it would double the
+  # request load on the sites being fetched.
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            fsGroup: 1000
+            fsGroupChangePolicy: OnRootMismatch
+          containers:
+            - name: build
+              image: oven/bun:1-alpine
+              env:
+                - name: TZ
+                  value: Asia/Tokyo
+              workingDir: /work
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  apk add --no-cache git >/dev/null
+                  rm -rf /work/repo
+                  git clone --depth 1 https://github.com/danything/zero-owner /work/repo
+                  cd /work/repo
+
+                  # Carry over the previous raw responses and the geocode
+                  # cache, so addresses already resolved are not asked again.
+                  cp -f /work/state/*.json . 2>/dev/null || true
+
+                  bun install --frozen-lockfile
+
+                  # zero.estate is left out on purpose: its terms require
+                  # consent for collection and that request is still pending.
+                  # Add `zero` here once they answer, with EMAIL/PASSWORD
+                  # supplied from a Secret.
+                  for source in fm md ni ie zz; do
+                    bun app.ts fetch "$source" || echo "取得に失敗: $source"
+                  done
+
+                  bun app.ts geocode
+                  bun app.ts json
+
+                  cp -f data-*.json geocode-cache.json /work/state/ 2>/dev/null || true
+
+                  mkdir -p /work/site
+                  cp index.html map.json /work/site/
+                  rm -rf /work/site/assets
+                  cp -r assets /work/site/assets
+                  echo "map.json: $(wc -c < map.json) bytes"
+              volumeMounts:
+                - name: data
+                  mountPath: /work/site
+                  subPath: site
+                - name: data
+                  mountPath: /work/state
+                  subPath: state
+                - name: repo
+                  mountPath: /work/repo
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  memory: 1Gi
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: yuzuriha-site
+            - name: repo
+              emptyDir: {}
