@@ -1,4 +1,4 @@
-FROM oven/bun:1.4.0-slim AS base
+FROM oven/bun:1.4.1-slim AS base
 WORKDIR /usr/src/app
 EXPOSE 5173
 ENV PORT=5173
