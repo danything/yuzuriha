@@ -6,7 +6,8 @@
  * ファイル名を組み立てると `..` でリポジトリ内を読まれるので、起動時に作った
  * 一覧と照合して、載っていないものは 404 にしている。
  *
- * 圧縮は前段の Traefik に任せる。Bun.serve は自動では圧縮しない。
+ * 圧縮はここで行う。以前は前段の Traefik(compress ミドルウェア)に任せていたが、
+ * Gateway API に相当するフィルタが無いので自前で持つことにした。Bun.serve は自動では圧縮しない。
  */
 
 import { OUT_FILE, runBuild } from "./build.ts";
@@ -67,7 +68,30 @@ async function serve(req: Request): Promise<Response> {
 	if (req.headers.get("if-none-match") === etag) {
 		return new Response(null, { status: 304, headers });
 	}
-	return new Response(file, { headers });
+
+	// 圧縮が効くのはテキストだけ。画像やフォントは既に圧縮済みなので触らない。
+	// 小さいものは伸ばすだけ無駄なので閾値を置く。
+	const type = file.type ?? "";
+	const compressible =
+		/^(text\/|application\/(json|javascript|xml|manifest\+json)|image\/svg\+xml)/.test(type);
+	if (!compressible || file.size < 1024) {
+		return new Response(file, { headers });
+	}
+
+	// 同じ URL でも Accept-Encoding で中身が変わるので、キャッシュに知らせる
+	const accept = req.headers.get("accept-encoding") ?? "";
+	const body = new Uint8Array(await file.arrayBuffer());
+	if (accept.includes("zstd")) {
+		return new Response(Bun.zstdCompressSync(body), {
+			headers: { ...headers, "content-encoding": "zstd", vary: "accept-encoding" },
+		});
+	}
+	if (accept.includes("gzip")) {
+		return new Response(Bun.gzipSync(body), {
+			headers: { ...headers, "content-encoding": "gzip", vary: "accept-encoding" },
+		});
+	}
+	return new Response(file, { headers: { ...headers, vary: "accept-encoding" } });
 }
 
 let building = false;
