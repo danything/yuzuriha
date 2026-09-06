@@ -1,7 +1,7 @@
 # yuzuriha
 
 0円物件を掲載サイトから集めて、**衛星写真の地図**に表示するサイト。サイト名は**譲葉**。
-自宅クラスタ（[`k3s/`](k3s/)）に `server.ts` を常時デプロイしてあり、そこが配信する。
+自宅クラスタ（[`deploy/`](deploy/)）に `server.ts` を常時デプロイしてあり、そこが配信する。
 以前は GitHub Pages の静的サイトとしても同じものを配っていたが、DNSを自宅に
 切り替えた上で Pages 側は削除済み。
 
@@ -40,7 +40,7 @@ assets/favicon.svg, assets/apple-touch-icon.png  アイコン（手書き）
 assets/main.js    生成物。maplibre-gl.* も生成時に置かれる
 Dockerfile        実行イメージ。node_modules は入らない（実行時の依存が無いため）
 compose.yml       ローカル実行。認証情報は compose.override.yml で上書きする
-k3s/              自宅クラスタ用のマニフェスト。ArgoCD が追従してデプロイする
+deploy/           自宅クラスタ用のマニフェスト。ArgoCD が追従してデプロイする
 data/             生成物。すべて Git 管理外
   map.json          地図が読む軽量データ
   <取得元>.json     取得元ごとの生データ
@@ -98,7 +98,7 @@ curl -sf https://raw.githubusercontent.com/danything/genkan/main/init.sh | sh -s
 
 `bun run dev` で直に動かす場合は `http://localhost:5173/`。
 
-自宅クラスタでは [`k3s/deployment.yaml`](k3s/deployment.yaml) に直接書く。
+自宅クラスタでは [`deploy/deployment.yaml`](deploy/deployment.yaml) に直接書く。
 イメージのビルド自体（`.github/workflows/docker-publish.yml`）はこれらの変数を
 読まないので、GitHub Actions の Secrets には登録していない。
 
@@ -152,12 +152,12 @@ CDN は使っていない。
 
 ## 自宅クラスタでの運用
 
-[`k3s/`](k3s/) にマニフェストを置いてある。配信も定期ビルドも `server.ts` の
+[`deploy/`](deploy/) にマニフェストを置いてある。配信も定期ビルドも `server.ts` の
 1プロセスなので、Deployment ひとつと、取得結果を残す PVC だけ。`danything`
-配下のリポジトリは `k3s/argocd.yaml` が ApplicationSet に拾われて自動デプロイ
+配下のリポジトリは `deploy/argocd.yaml` が ApplicationSet に拾われて自動デプロイ
 される。イメージは [`docker-publish.yml`](.github/workflows/docker-publish.yml)
 が `main` への push のたびに ghcr へ push し、同じジョブが
-`k3s/deployment.yaml` のタグをそのビルドの sha に書き換えて `main` に直接
+`deploy/deployment.yaml` のタグをそのビルドの sha に書き換えて `main` に直接
 コミットする。ArgoCD はそのタグの変化を差分として検知して自動でロールアウト
 するので、手動で `kubectl rollout restart` する必要はない。
 
