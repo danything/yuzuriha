@@ -1,4 +1,4 @@
-# 自宅クラスタ (k3s/) が動かすイメージ。ArgoCD が k3s/deployment.yaml の
+# 自宅クラスタ (deploy/) が動かすイメージ。ArgoCD が deploy/deployment.yaml の
 # タグを見て同期する（下の bump ステップ参照）。
 name: Build and Push Docker Image
 
@@ -45,7 +45,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       # ArgoCD は latest の中身が変わっただけでは同期しない（マニフェストに
-      # 差分が無いため）。k3s/deployment.yaml のタグをこのビルドの sha に
+      # 差分が無いため）。deploy/deployment.yaml のタグをこのビルドの sha に
       # 書き換えて main に直接コミットすると、そこが差分になって自動で
       # ロールアウトする。main は保護されていないので PR は要らない。
       # push は GITHUB_TOKEN で行うため、このワークフロー自体は再トリガーされない。
@@ -53,12 +53,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          sed -i "s#image: ${REGISTRY}/[^:[:space:]]*/yuzuriha:[^[:space:]]*#image: ${REGISTRY}/${IMAGE_NAME}:${GITHUB_SHA}#" k3s/deployment.yaml
-          if git diff --quiet -- k3s/deployment.yaml; then
-            echo "k3s/deployment.yaml already points at ${GITHUB_SHA}; nothing to commit"
+          sed -i "s#image: ${REGISTRY}/[^:[:space:]]*/yuzuriha:[^[:space:]]*#image: ${REGISTRY}/${IMAGE_NAME}:${GITHUB_SHA}#" deploy/deployment.yaml
+          if git diff --quiet -- deploy/deployment.yaml; then
+            echo "deploy/deployment.yaml already points at ${GITHUB_SHA}; nothing to commit"
             exit 0
           fi
-          git add k3s/deployment.yaml
+          git add deploy/deployment.yaml
           git commit -m "Point the deployment at ${GITHUB_SHA::7}"
           git push origin HEAD:main
         env:
