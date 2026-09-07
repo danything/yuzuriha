@@ -1,0 +1,23 @@
+# 公開経路。**Cilium Gateway (danything/gitops の bootstrap/gateway/) に付ける HTTPRoute。**
+# 証明書は Gateway 側のリスナーに cert-manager がワイルドカードで発行したものが付いているので、
+# ここでは指定しない。
+# 以前は danything/gitops の apps/gateway-routes/ にあったが、アプリと同じ場所へ移した。
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: yuzuriha
+  namespace: yuzuriha
+spec:
+  parentRefs:
+    - name: doany
+      namespace: kube-system
+      sectionName: https
+  hostnames: ["y.doany.io"]
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: yuzuriha
+          port: 80
