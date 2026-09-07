@@ -1,13 +1,12 @@
 # The fetched data: each source's raw JSON, the geocode cache and the map.json
-# built from them. Retained on delete because losing the cache means asking
-# 国土地理院 for every address again, one request at a time.
+# built from them. Losing the cache means asking 国土地理院 for every address
+# again, one request at a time, so the daily restic backup is what stands
+# behind it now.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: yuzuriha-data
   namespace: yuzuriha
-  annotations:
-    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
   accessModes:
     - ReadWriteOnce
