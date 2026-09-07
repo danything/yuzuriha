@@ -41,7 +41,7 @@ spec:
           # Built, pushed, and this tag bumped by
           # .github/workflows/docker-publish.yml on every push to main --
           # ArgoCD picks up the change here and rolls it out on its own.
-          image: ghcr.io/danything/yuzuriha:684e16730e0d560e79b06ea0081625c82dde9f90
+          image: ghcr.io/danything/yuzuriha:8c18d3b5b616bfd2f546b4e5d873237d63b0eb6d
           imagePullPolicy: Always
           ports:
             - containerPort: 5173
