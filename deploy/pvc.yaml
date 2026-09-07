@@ -1,12 +1,18 @@
 # The fetched data: each source's raw JSON, the geocode cache and the map.json
 # built from them. Losing the cache means asking 国土地理院 for every address
-# again, one request at a time, so the daily restic backup is what stands
-# behind it now.
+# again, one request at a time, so the daily backup is what stands behind it.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: yuzuriha-data
   namespace: yuzuriha
+  annotations:
+    # Back this up as files, with k8up. The host-side script that reads the
+    # PVC directories cannot come along to Talos, which has no shell; k8up
+    # runs as a pod against the same restic repository instead. There is no
+    # database here, so copying while the app writes only risks the copy
+    # being partly stale, never corrupt.
+    k8up.io/backup: "true"
 spec:
   accessModes:
     - ReadWriteOnce
