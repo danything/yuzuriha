@@ -78,17 +78,24 @@ async function serve(req: Request): Promise<Response> {
 		return new Response(file, { headers });
 	}
 
-	// 同じ URL でも Accept-Encoding で中身が変わるので、キャッシュに知らせる
+	// 同じ URL でも Accept-Encoding で中身が変わるので、キャッシュに知らせる。
+	//
+	// **content-type は自分で書く。** BunFile をそのまま渡したときは Bun が
+	// 拡張子から入れてくれるが、**圧縮すると渡すのは Uint8Array になる**ので
+	// 推測のしようがなく、`application/octet-stream` になる。ブラウザは必ず
+	// `Accept-Encoding: gzip` を送るので、**全員がページをダウンロードさせられる**
+	// (2026-09-06 の圧縮の移設で入り、2026-09-08 に見つけた)。
 	const accept = req.headers.get("accept-encoding") ?? "";
+	const compressed = { ...headers, "content-type": type, vary: "accept-encoding" };
 	const body = new Uint8Array(await file.arrayBuffer());
 	if (accept.includes("zstd")) {
 		return new Response(Bun.zstdCompressSync(body), {
-			headers: { ...headers, "content-encoding": "zstd", vary: "accept-encoding" },
+			headers: { ...compressed, "content-encoding": "zstd" },
 		});
 	}
 	if (accept.includes("gzip")) {
 		return new Response(Bun.gzipSync(body), {
-			headers: { ...headers, "content-encoding": "gzip", vary: "accept-encoding" },
+			headers: { ...compressed, "content-encoding": "gzip" },
 		});
 	}
 	return new Response(file, { headers: { ...headers, vary: "accept-encoding" } });
