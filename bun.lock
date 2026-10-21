@@ -4,7 +4,7 @@
   "workspaces": {
     "": {
       "devDependencies": {
-        "@biomejs/biome": "^2.6.0",
+        "@biomejs/biome": "^2.6.1",
         "@types/bun": "^1.4.3",
         "@types/node": "^26.6.5",
         "maplibre-gl": "^6.15.0",
@@ -13,7 +13,7 @@
     },
   },
   "packages": {
-    "@biomejs/biome": ["@biomejs/biome@2.6.0", "", { "optionalDependencies": { "@biomejs/cli-android-arm64": "2.6.0", "@biomejs/cli-android-x64": "2.6.0", "@biomejs/cli-darwin-arm64": "2.6.0", "@biomejs/cli-darwin-x64": "2.6.0", "@biomejs/cli-linux-arm64": "2.6.0", "@biomejs/cli-linux-arm64-musl": "2.6.0", "@biomejs/cli-linux-x64": "2.6.0", "@biomejs/cli-linux-x64-musl": "2.6.0", "@biomejs/cli-win32-arm64": "2.6.0", "@biomejs/cli-win32-x64": "2.6.0" }, "bin": { "biome": "bin/biome" } }, "sha512-W9P1Niu05tuptXd4KXH3OqLwhXxHF92+Xx+vuxfJzGzRI5uHMGghFgCJq94mZAMJxzr2zqtchnul6fLB7P1Gkw=="],
+    "@biomejs/biome": ["@biomejs/biome@2.6.1", "", { "optionalDependencies": { "@biomejs/cli-android-arm64": "2.6.1", "@biomejs/cli-android-x64": "2.6.1", "@biomejs/cli-darwin-arm64": "2.6.1", "@biomejs/cli-darwin-x64": "2.6.1", "@biomejs/cli-linux-arm64": "2.6.1", "@biomejs/cli-linux-arm64-musl": "2.6.1", "@biomejs/cli-linux-x64": "2.6.1", "@biomejs/cli-linux-x64-musl": "2.6.1", "@biomejs/cli-win32-arm64": "2.6.1", "@biomejs/cli-win32-x64": "2.6.1" }, "bin": { "biome": "bin/biome" } }, "sha512-jQV7n2pMwY+YxBwCls+hCLKoij5/kXdeqNW2rUU+2Zp6faTodVmAEqku5HCasbRT4rmVQTTAbSdkvpv6hotZog=="],
 
     "@mapbox/jsonlint-lines-primitives": ["@mapbox/jsonlint-lines-primitives@2.0.3", "", {}, "sha512-0SElaV0uMxEnxzBhhX9WTuPyUeMsAN/SS0i16tjuba4/mio63MG9khjC1a0JAiPGXAwvwm4UfHJURCN7nyudQg=="],
 
