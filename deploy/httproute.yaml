@@ -7,11 +7,6 @@ kind: HTTPRoute
 metadata:
   name: yuzuriha
   namespace: yuzuriha
-  annotations:
-    # Cloudflare のプロキシを通す(SaaS として外へ出すアプリなので)。DNS のレコード
-    # (→ doany.io の proxied の CNAME)は gitops の ExternalDNS がこの注釈を見て作る。
-    # 外すとレコードも消え、ワイルドカード(直接つなぐ)で引けるようになる
-    external-dns.kubernetes.io/cloudflare-proxied: "true"
 spec:
   parentRefs:
     - name: doany
