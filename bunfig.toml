@@ -5,5 +5,4 @@ sortImports = true
 ignorePatterns = [
   # ArgoCD が見るマニフェスト。docker-publish.yml がタグを sed で書き換える
   "deploy/",
-  "renovate.json",
 ]
