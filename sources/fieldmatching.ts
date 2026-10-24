@@ -12,13 +12,13 @@
 import { type GeoCache, normalizeAddress } from "../geocode.ts";
 import type { SourceProperty } from "../types.ts";
 import {
-	DELAY_MS,
-	jstToIso,
-	readRaw as readRawFile,
-	saveRaw,
-	sleep,
-	toNumber,
-	USER_AGENT,
+  DELAY_MS,
+  jstToIso,
+  readRaw as readRawFile,
+  saveRaw,
+  sleep,
+  toNumber,
+  USER_AGENT,
 } from "./common.ts";
 
 const BASE = "https://fieldmatching.klc1809.com";
@@ -35,207 +35,207 @@ const MAX_PRICE = Number(Bun.env.FM_MAX_PRICE ?? 1);
 type Category = { id: number; name: string };
 
 export type FieldMatchingItem = {
-	id: number;
-	name: string;
-	status_id: number;
-	status_title: string;
-	sale_price: string | null;
-	lat: string | null;
-	lng: string | null;
-	prefectures_name: string | null;
-	city: string | null;
-	block: string | null;
-	address: string | null;
-	area: string | null;
-	ground_name: string | null;
-	construction_year: number | null;
-	is_building: number;
-	sum_liked: number | string | null;
-	image_url: string | null;
-	categories: Category[] | null;
-	registered_at: string | null;
-	created_at: string;
-	updated_at: string;
+  id: number;
+  name: string;
+  status_id: number;
+  status_title: string;
+  sale_price: string | null;
+  lat: string | null;
+  lng: string | null;
+  prefectures_name: string | null;
+  city: string | null;
+  block: string | null;
+  address: string | null;
+  area: string | null;
+  ground_name: string | null;
+  construction_year: number | null;
+  is_building: number;
+  sum_liked: number | string | null;
+  image_url: string | null;
+  categories: Category[] | null;
+  registered_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type SearchResponse = {
-	success: boolean;
-	message?: string;
-	data?: {
-		current_page: number;
-		last_page: number;
-		total: number;
-		data: FieldMatchingItem[];
-	};
+  success: boolean;
+  message?: string;
+  data?: {
+    current_page: number;
+    last_page: number;
+    total: number;
+    data: FieldMatchingItem[];
+  };
 };
 
 type Query = { page: number; sort: number; prefecture_id?: string[] };
 
 async function searchPage(query: Query, attempt = 0): Promise<SearchResponse> {
-	const res = await fetch(`${SEARCH}?page=${query.page}`, {
-		method: "POST",
-		headers: {
-			"content-type": "application/json",
-			accept: "application/json, text/plain, */*",
-			"user-agent": USER_AGENT,
-		},
-		// sort が「選別フィールド」。省くと 400 になる
-		body: JSON.stringify(query),
-	});
+  const res = await fetch(`${SEARCH}?page=${query.page}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/plain, */*",
+      "user-agent": USER_AGENT,
+    },
+    // sort が「選別フィールド」。省くと 400 になる
+    body: JSON.stringify(query),
+  });
 
-	// 混み合っているときは間隔を空けて数回だけ待つ
-	if ((res.status === 429 || res.status >= 500) && attempt < 3) {
-		await sleep(DELAY_MS * 2 ** (attempt + 1));
-		return searchPage(query, attempt + 1);
-	}
-	if (!res.ok) {
-		throw new Error(
-			`フィールドマッチング ${query.page}ページ目: HTTP ${res.status}`,
-		);
-	}
-	return (await res.json()) as SearchResponse;
+  // 混み合っているときは間隔を空けて数回だけ待つ
+  if ((res.status === 429 || res.status >= 500) && attempt < 3) {
+    await sleep(DELAY_MS * 2 ** (attempt + 1));
+    return searchPage(query, attempt + 1);
+  }
+  if (!res.ok) {
+    throw new Error(
+      `フィールドマッチング ${query.page}ページ目: HTTP ${res.status}`,
+    );
+  }
+  return (await res.json()) as SearchResponse;
 }
 
 export async function fetchFieldMatching(): Promise<FieldMatchingItem[]> {
-	const found = new Map<number, FieldMatchingItem>();
-	let requests = 0;
-	let expected = 0;
+  const found = new Map<number, FieldMatchingItem>();
+  let requests = 0;
+  let expected = 0;
 
-	for (const prefecture of PREFECTURES) {
-		const seen = new Set<number>();
-		let total = 0;
+  for (const prefecture of PREFECTURES) {
+    const seen = new Set<number>();
+    let total = 0;
 
-		for (const sort of SORTS) {
-			const first = await searchPage({
-				page: 1,
-				sort,
-				prefecture_id: [prefecture],
-			});
-			requests++;
-			if (!first.data) break;
+    for (const sort of SORTS) {
+      const first = await searchPage({
+        page: 1,
+        sort,
+        prefecture_id: [prefecture],
+      });
+      requests++;
+      if (!first.data) break;
 
-			total = first.data.total;
-			const collect = (items: FieldMatchingItem[]) => {
-				for (const item of items) {
-					seen.add(item.id);
-					found.set(item.id, item);
-				}
-			};
-			collect(first.data.data);
+      total = first.data.total;
+      const collect = (items: FieldMatchingItem[]) => {
+        for (const item of items) {
+          seen.add(item.id);
+          found.set(item.id, item);
+        }
+      };
+      collect(first.data.data);
 
-			for (let page = 2; page <= first.data.last_page; page++) {
-				await sleep();
-				const res = await searchPage({
-					page,
-					sort,
-					prefecture_id: [prefecture],
-				});
-				requests++;
-				if (!res.data) break;
-				collect(res.data.data);
-			}
+      for (let page = 2; page <= first.data.last_page; page++) {
+        await sleep();
+        const res = await searchPage({
+          page,
+          sort,
+          prefecture_id: [prefecture],
+        });
+        requests++;
+        if (!res.data) break;
+        collect(res.data.data);
+      }
 
-			// 件数が揃ったら並び順を変える必要はない
-			if (seen.size >= total) break;
-			await sleep();
-		}
+      // 件数が揃ったら並び順を変える必要はない
+      if (seen.size >= total) break;
+      await sleep();
+    }
 
-		expected += total;
-		if (total > 0 && seen.size < total) {
-			console.warn(
-				`  都道府県 ${prefecture}: ${seen.size}/${total} 件しか取れませんでした`,
-			);
-		}
-		await sleep();
-	}
+    expected += total;
+    if (total > 0 && seen.size < total) {
+      console.warn(
+        `  都道府県 ${prefecture}: ${seen.size}/${total} 件しか取れませんでした`,
+      );
+    }
+    await sleep();
+  }
 
-	const items = [...found.values()];
-	console.log(
-		`フィールドマッチング: ${items.length}/${expected} 件 (リクエスト ${requests} 回)`,
-	);
+  const items = [...found.values()];
+  console.log(
+    `フィールドマッチング: ${items.length}/${expected} 件 (リクエスト ${requests} 回)`,
+  );
 
-	return await saveRaw(RAW_FILE, items);
+  return await saveRaw(RAW_FILE, items);
 }
 
 export const readRaw = () => readRawFile<FieldMatchingItem>(RAW_FILE);
 
 /** 詳細ページの URL は id を5桁ゼロ埋めして a を付けたもの */
 const detailUrl = (id: number) =>
-	`${BASE}/property/a${String(id).padStart(5, "0")}`;
+  `${BASE}/property/a${String(id).padStart(5, "0")}`;
 
 /** 掲載側に座標が無いとき、住所検索の結果で補う */
 export function addressOf(item: FieldMatchingItem): string {
-	return normalizeAddress(
-		item.prefectures_name ?? "",
-		item.city ?? "",
-		[item.block, item.address].filter(Boolean).join(""),
-	);
+  return normalizeAddress(
+    item.prefectures_name ?? "",
+    item.city ?? "",
+    [item.block, item.address].filter(Boolean).join(""),
+  );
 }
 
 export function toMapProperties(
-	items: FieldMatchingItem[],
-	geo: GeoCache = {},
+  items: FieldMatchingItem[],
+  geo: GeoCache = {},
 ): {
-	properties: SourceProperty[];
-	unmapped: number;
-	filtered: number;
+  properties: SourceProperty[];
+  unmapped: number;
+  filtered: number;
 } {
-	const properties: SourceProperty[] = [];
-	let unmapped = 0;
-	let filtered = 0;
+  const properties: SourceProperty[] = [];
+  let unmapped = 0;
+  let filtered = 0;
 
-	for (const item of items) {
-		const price = toNumber(item.sale_price);
-		if (!Number.isFinite(price) || price > MAX_PRICE) {
-			filtered++;
-			continue;
-		}
+  for (const item of items) {
+    const price = toNumber(item.sale_price);
+    if (!Number.isFinite(price) || price > MAX_PRICE) {
+      filtered++;
+      continue;
+    }
 
-		let lat = toNumber(item.lat);
-		let lng = toNumber(item.lng);
-		let approx: string | null = null;
+    let lat = toNumber(item.lat);
+    let lng = toNumber(item.lng);
+    let approx: string | null = null;
 
-		if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-			const hit = geo[addressOf(item)];
-			if (!hit) {
-				unmapped++;
-				continue;
-			}
-			({ lat, lng } = hit);
-			approx = hit.title;
-		}
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      const hit = geo[addressOf(item)];
+      if (!hit) {
+        unmapped++;
+        continue;
+      }
+      ({ lat, lng } = hit);
+      approx = hit.title;
+    }
 
-		// 建物の有無は is_building、築年は不明だと -1 が入る
-		const builtYear =
-			item.construction_year && item.construction_year > 0
-				? `${item.construction_year}年`
-				: null;
+    // 建物の有無は is_building、築年は不明だと -1 が入る
+    const builtYear =
+      item.construction_year && item.construction_year > 0
+        ? `${item.construction_year}年`
+        : null;
 
-		properties.push({
-			id: `fm:${item.id}`,
-			source: SOURCE,
-			url: detailUrl(item.id),
-			title: item.name,
-			status: item.status_title,
-			type: item.ground_name ?? "",
-			prefecture: item.prefectures_name ?? "",
-			city: item.city ?? "",
-			address: [item.block, item.address].filter(Boolean).join(""),
-			lat,
-			lng,
-			price,
-			builtYear,
-			views: 0,
-			favorites: Number(item.sum_liked) || 0,
-			notes: (item.categories ?? []).map((c) => c.name),
-			// registered_at は JST の "YYYY-MM-DD HH:mm:ss"
-			publishedAt: item.registered_at
-				? jstToIso(item.registered_at)
-				: item.created_at,
-			image: item.image_url,
-			approx,
-		});
-	}
+    properties.push({
+      id: `fm:${item.id}`,
+      source: SOURCE,
+      url: detailUrl(item.id),
+      title: item.name,
+      status: item.status_title,
+      type: item.ground_name ?? "",
+      prefecture: item.prefectures_name ?? "",
+      city: item.city ?? "",
+      address: [item.block, item.address].filter(Boolean).join(""),
+      lat,
+      lng,
+      price,
+      builtYear,
+      views: 0,
+      favorites: Number(item.sum_liked) || 0,
+      notes: (item.categories ?? []).map((c) => c.name),
+      // registered_at は JST の "YYYY-MM-DD HH:mm:ss"
+      publishedAt: item.registered_at
+        ? jstToIso(item.registered_at)
+        : item.created_at,
+      image: item.image_url,
+      approx,
+    });
+  }
 
-	return { properties, unmapped, filtered };
+  return { properties, unmapped, filtered };
 }

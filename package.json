@@ -1,21 +1,23 @@
 {
-	"name": "yuzuriha",
-	"private": true,
-	"scripts": {
-		"start": "bun server.ts",
-		"build:web": "bun build-web.ts",
-		"build": "bun app.ts",
-		"fetch": "bun app.ts fetch",
-		"geocode": "bun app.ts geocode",
-		"json": "bun app.ts json",
-		"dev": "bun build-web.ts && bun server.ts",
-		"typecheck": "tsc --noEmit"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "^2.6.2",
-		"@types/bun": "^1.4.4",
-		"@types/node": "^26.6.5",
-		"maplibre-gl": "^6.15.0",
-		"typescript": "^7.0.0"
-	}
+  "name": "yuzuriha",
+  "private": true,
+  "scripts": {
+    "start": "bun server.ts",
+    "build:web": "bun build-web.ts",
+    "build": "bun app.ts",
+    "fetch": "bun app.ts fetch",
+    "geocode": "bun app.ts geocode",
+    "json": "bun app.ts json",
+    "dev": "bun build-web.ts && bun server.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint && bun fmt --check",
+    "format": "oxlint --fix && bun fmt"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "@types/node": "^26.6.5",
+    "maplibre-gl": "^6.15.0",
+    "oxlint": "^1.89.0",
+    "typescript": "^7.0.0"
+  }
 }

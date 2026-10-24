@@ -3,7 +3,7 @@
 name: Build and Push Docker Image
 
 on:
-  push: {branches: ["main"]}
+  push: { branches: ["main"] }
   workflow_dispatch:
 
 # 新しいコミットのイメージだけあればいいので、古い実行は打ち切る
