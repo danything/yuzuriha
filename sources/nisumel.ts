@@ -15,8 +15,8 @@ import {
   saveRaw,
   splitAddress,
   stripTags,
-  type WpPost,
   wpImage,
+  type WpPost,
   wpPosts,
 } from "./common.ts";
 

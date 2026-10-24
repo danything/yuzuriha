@@ -1,12 +1,9 @@
 # 整形 (`bun fmt`。`package.json` の format・lint から呼ぶ)。書き方は既定のまま、外すものだけ
 [fmt]
+# import を並べ替える (組の分け方は既定のまま。副作用だけの import は動かさない)
+sortImports = true
 ignorePatterns = [
   # ArgoCD が見るマニフェスト。docker-publish.yml がタグを sed で書き換える
   "deploy/",
-  # build-web.ts が書き出すもの・取得したデータ
-  "assets/main.js",
-  "assets/maplibre-gl*",
-  "data/",
-  "site/",
   "renovate.json",
 ]
