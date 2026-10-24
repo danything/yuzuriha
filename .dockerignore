@@ -6,7 +6,8 @@ site
 deploy
 README.md
 LICENSE
-biome.json
+.oxlintrc.json
+bunfig.toml
 tsconfig.json
 renovate.json
 # 認証情報が入る。イメージにもビルドコンテキストにも渡さない

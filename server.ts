@@ -22,83 +22,91 @@ const REVALIDATE = "public, max-age=0, must-revalidate";
 
 /** 配信するファイル。ここに無いパスは 404 */
 const ROUTES: Record<string, { path: string; cache: string }> = {
-	"/": { path: "index.html", cache: REVALIDATE },
-	"/index.html": { path: "index.html", cache: REVALIDATE },
-	"/map.json": { path: OUT_FILE, cache: REVALIDATE },
+  "/": { path: "index.html", cache: REVALIDATE },
+  "/index.html": { path: "index.html", cache: REVALIDATE },
+  "/map.json": { path: OUT_FILE, cache: REVALIDATE },
 };
 
 // assets/ は起動時にあるものをそのまま載せる。中身は maplibre の chunk まで
 // 数えると6つあり、build-web.ts と名前を二重に持ちたくない。
 // 走査した名前としか照合しないので、パスを組み立てるのと違って `..` は入らない。
 try {
-	for await (const name of new Bun.Glob("*").scan("assets")) {
-		ROUTES[`/assets/${name}`] = {
-			path: `assets/${name}`,
-			cache: "public, max-age=3600",
-		};
-	}
+  for await (const name of new Bun.Glob("*").scan("assets")) {
+    ROUTES[`/assets/${name}`] = {
+      path: `assets/${name}`,
+      cache: "public, max-age=3600",
+    };
+  }
 } catch {
-	// フロントを一度もビルドしていないと assets/ 自体が無い
-	console.warn(
-		"assets/ がありません。先に bun build-web.ts を実行してください",
-	);
+  // フロントを一度もビルドしていないと assets/ 自体が無い
+  console.warn(
+    "assets/ がありません。先に bun build-web.ts を実行してください",
+  );
 }
 
 /** 中身を読まずに済ませたいので、サイズと更新時刻から作る */
 const etagOf = (size: number, mtime: number) =>
-	`W/"${size.toString(16)}-${mtime.toString(16)}"`;
+  `W/"${size.toString(16)}-${mtime.toString(16)}"`;
 
 async function serve(req: Request): Promise<Response> {
-	const route = ROUTES[new URL(req.url).pathname];
-	if (!route) return new Response("Not Found", { status: 404 });
+  const route = ROUTES[new URL(req.url).pathname];
+  if (!route) return new Response("Not Found", { status: 404 });
 
-	const file = Bun.file(route.path);
-	if (!(await file.exists())) {
-		return new Response("Not Found", { status: 404 });
-	}
+  const file = Bun.file(route.path);
+  if (!(await file.exists())) {
+    return new Response("Not Found", { status: 404 });
+  }
 
-	const etag = etagOf(file.size, file.lastModified);
-	const headers = {
-		"cache-control": route.cache,
-		etag,
-		// 掲載元の検索流入を奪わない約束をしているので、明示しておく
-		"x-robots-tag": "noindex, nofollow",
-	};
+  const etag = etagOf(file.size, file.lastModified);
+  const headers = {
+    "cache-control": route.cache,
+    etag,
+    // 掲載元の検索流入を奪わない約束をしているので、明示しておく
+    "x-robots-tag": "noindex, nofollow",
+  };
 
-	if (req.headers.get("if-none-match") === etag) {
-		return new Response(null, { status: 304, headers });
-	}
+  if (req.headers.get("if-none-match") === etag) {
+    return new Response(null, { status: 304, headers });
+  }
 
-	// 圧縮が効くのはテキストだけ。画像やフォントは既に圧縮済みなので触らない。
-	// 小さいものは伸ばすだけ無駄なので閾値を置く。
-	const type = file.type ?? "";
-	const compressible =
-		/^(text\/|application\/(json|javascript|xml|manifest\+json)|image\/svg\+xml)/.test(type);
-	if (!compressible || file.size < 1024) {
-		return new Response(file, { headers });
-	}
+  // 圧縮が効くのはテキストだけ。画像やフォントは既に圧縮済みなので触らない。
+  // 小さいものは伸ばすだけ無駄なので閾値を置く。
+  const type = file.type ?? "";
+  const compressible =
+    /^(text\/|application\/(json|javascript|xml|manifest\+json)|image\/svg\+xml)/.test(
+      type,
+    );
+  if (!compressible || file.size < 1024) {
+    return new Response(file, { headers });
+  }
 
-	// 同じ URL でも Accept-Encoding で中身が変わるので、キャッシュに知らせる。
-	//
-	// **content-type は自分で書く。** BunFile をそのまま渡したときは Bun が
-	// 拡張子から入れてくれるが、**圧縮すると渡すのは Uint8Array になる**ので
-	// 推測のしようがなく、`application/octet-stream` になる。ブラウザは必ず
-	// `Accept-Encoding: gzip` を送るので、**全員がページをダウンロードさせられる**
-	// (2026-09-06 の圧縮の移設で入り、2026-09-08 に見つけた)。
-	const accept = req.headers.get("accept-encoding") ?? "";
-	const compressed = { ...headers, "content-type": type, vary: "accept-encoding" };
-	const body = new Uint8Array(await file.arrayBuffer());
-	if (accept.includes("zstd")) {
-		return new Response(Bun.zstdCompressSync(body), {
-			headers: { ...compressed, "content-encoding": "zstd" },
-		});
-	}
-	if (accept.includes("gzip")) {
-		return new Response(Bun.gzipSync(body), {
-			headers: { ...compressed, "content-encoding": "gzip" },
-		});
-	}
-	return new Response(file, { headers: { ...headers, vary: "accept-encoding" } });
+  // 同じ URL でも Accept-Encoding で中身が変わるので、キャッシュに知らせる。
+  //
+  // **content-type は自分で書く。** BunFile をそのまま渡したときは Bun が
+  // 拡張子から入れてくれるが、**圧縮すると渡すのは Uint8Array になる**ので
+  // 推測のしようがなく、`application/octet-stream` になる。ブラウザは必ず
+  // `Accept-Encoding: gzip` を送るので、**全員がページをダウンロードさせられる**
+  // (2026-09-06 の圧縮の移設で入り、2026-09-08 に見つけた)。
+  const accept = req.headers.get("accept-encoding") ?? "";
+  const compressed = {
+    ...headers,
+    "content-type": type,
+    vary: "accept-encoding",
+  };
+  const body = new Uint8Array(await file.arrayBuffer());
+  if (accept.includes("zstd")) {
+    return new Response(Bun.zstdCompressSync(body), {
+      headers: { ...compressed, "content-encoding": "zstd" },
+    });
+  }
+  if (accept.includes("gzip")) {
+    return new Response(Bun.gzipSync(body), {
+      headers: { ...compressed, "content-encoding": "gzip" },
+    });
+  }
+  return new Response(file, {
+    headers: { ...headers, vary: "accept-encoding" },
+  });
 }
 
 let building = false;
@@ -108,30 +116,30 @@ let building = false;
  * 起動直後の初回ビルドと重なりうるので念のため見張る。
  */
 async function build(reason: string) {
-	if (building) {
-		console.warn(`${reason}: 前回のビルドが実行中のため見送り`);
-		return;
-	}
-	building = true;
-	console.log(`${reason}: ビルド開始`);
-	try {
-		await runBuild();
-	} catch (error) {
-		console.error(`ビルド失敗: ${(error as Error).message}`);
-	} finally {
-		building = false;
-	}
+  if (building) {
+    console.warn(`${reason}: 前回のビルドが実行中のため見送り`);
+    return;
+  }
+  building = true;
+  console.log(`${reason}: ビルド開始`);
+  try {
+    await runBuild();
+  } catch (error) {
+    console.error(`ビルド失敗: ${(error as Error).message}`);
+  } finally {
+    building = false;
+  }
 }
 
 Bun.serve({ port, fetch: serve });
 console.log(`http://localhost:${port}/`);
 
 if (BUILD_CRON) {
-	Bun.cron(BUILD_CRON, () => build("定期実行"), { tz: TZ });
-	console.log(`定期ビルド: ${BUILD_CRON} (${TZ})`);
+  Bun.cron(BUILD_CRON, () => build("定期実行"), { tz: TZ });
+  console.log(`定期ビルド: ${BUILD_CRON} (${TZ})`);
 
-	// 新しいボリュームだと map.json がまだ無いので、初回だけ作る
-	if (!(await Bun.file(OUT_FILE).exists())) {
-		void build("初回");
-	}
+  // 新しいボリュームだと map.json がまだ無いので、初回だけ作る
+  if (!(await Bun.file(OUT_FILE).exists())) {
+    void build("初回");
+  }
 }

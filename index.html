@@ -2,7 +2,10 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
     <title>譲葉</title>
     <meta
       name="description"
@@ -20,7 +23,12 @@
   <body>
     <div id="map"></div>
 
-    <button id="panel-toggle" class="panel-toggle" type="button" aria-controls="panel">
+    <button
+      id="panel-toggle"
+      class="panel-toggle"
+      type="button"
+      aria-controls="panel"
+    >
       <span aria-hidden="true">☰</span> 絞り込み
     </button>
 
@@ -30,7 +38,12 @@
           <h1 class="panel__title">譲葉</h1>
           <p class="panel__meta" id="meta">読み込み中…</p>
         </div>
-        <button id="panel-close" class="panel__close" type="button" aria-label="パネルを閉じる">
+        <button
+          id="panel-close"
+          class="panel__close"
+          type="button"
+          aria-label="パネルを閉じる"
+        >
           ×
         </button>
       </header>
@@ -38,13 +51,20 @@
       <div class="panel__body" id="panel-body">
         <section class="field">
           <label class="field__label" for="search">物件名・住所で検索</label>
-          <input id="search" type="search" placeholder="例: 高山市 別荘" autocomplete="off" />
+          <input
+            id="search"
+            type="search"
+            placeholder="例: 高山市 別荘"
+            autocomplete="off"
+          />
         </section>
 
         <section class="field">
           <h2 class="field__label">
             ステータス
-            <button type="button" class="link-btn" id="status-reset">すべて</button>
+            <button type="button" class="link-btn" id="status-reset">
+              すべて
+            </button>
           </h2>
           <div class="chips" id="statuses"></div>
         </section>
@@ -52,7 +72,9 @@
         <section class="field">
           <h2 class="field__label">
             取得元
-            <button type="button" class="link-btn" id="source-reset">すべて</button>
+            <button type="button" class="link-btn" id="source-reset">
+              すべて
+            </button>
           </h2>
           <div class="chips" id="sources"></div>
         </section>
@@ -60,7 +82,9 @@
         <section class="field">
           <h2 class="field__label">
             種別
-            <button type="button" class="link-btn" id="type-reset">すべて</button>
+            <button type="button" class="link-btn" id="type-reset">
+              すべて
+            </button>
           </h2>
           <div class="chips" id="types"></div>
         </section>
@@ -79,7 +103,9 @@
         <section class="field">
           <h2 class="field__label">
             特記事項
-            <button type="button" class="link-btn" id="note-reset">すべて</button>
+            <button type="button" class="link-btn" id="note-reset">
+              すべて
+            </button>
           </h2>
           <div class="chips chips--scroll" id="notes"></div>
         </section>
@@ -103,7 +129,9 @@
         </section>
 
         <section class="field field--grow">
-          <h2 class="field__label">一覧 <span class="count" id="count"></span></h2>
+          <h2 class="field__label">
+            一覧 <span class="count" id="count"></span>
+          </h2>
           <ol class="list" id="list"></ol>
         </section>
       </div>
