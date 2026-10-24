@@ -95,9 +95,19 @@ async function serve(req: Request): Promise<Response> {
   };
   const body = new Uint8Array(await file.arrayBuffer());
   if (accept.includes("zstd")) {
-    return new Response(Bun.zstdCompressSync(body), {
-      headers: { ...compressed, "content-encoding": "zstd" },
-    });
+    // zstdCompressSync は Buffer を返し、型の上では Response の body に渡せない
+    // (中身は ArrayBuffer なので Uint8Array として渡す。写しは作らない)
+    const zstd = Bun.zstdCompressSync(body);
+    return new Response(
+      new Uint8Array(
+        zstd.buffer as ArrayBuffer,
+        zstd.byteOffset,
+        zstd.byteLength,
+      ),
+      {
+        headers: { ...compressed, "content-encoding": "zstd" },
+      },
+    );
   }
   if (accept.includes("gzip")) {
     return new Response(Bun.gzipSync(body), {

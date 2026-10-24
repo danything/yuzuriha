@@ -1,0 +1,19 @@
+# PR と main への push で、型・リント・整形を確かめる
+name: Check
+
+on:
+  pull_request:
+  push: { branches: ["main"] }
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # bun fmt は 1.4.4 から
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
