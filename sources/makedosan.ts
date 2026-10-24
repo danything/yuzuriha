@@ -18,8 +18,8 @@ import {
   sleep,
   splitAddress,
   stripTags,
-  type WpPost,
   wpImage,
+  type WpPost,
   wpPosts,
 } from "./common.ts";
 

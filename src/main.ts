@@ -17,6 +17,7 @@ import {
   ScaleControl,
   type StyleSpecification,
 } from "maplibre-gl";
+
 import type { MapProperty } from "../types.ts";
 
 /** build.ts が書き出す map.json の形 */
