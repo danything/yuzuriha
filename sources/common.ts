@@ -114,10 +114,24 @@ export const decodeEntities = (text: string): string =>
  * keepBreaks を立てると改行を残す（行ごとに読みたい本文用）。
  */
 export function stripTags(html: string, keepBreaks = false): string {
-  const text = decodeEntities(
-    html.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, ""),
-  );
+  const text = decodeEntities(removeTags(html.replace(/<br\s*\/?>/gi, "\n")));
   return (keepBreaks ? text : text.replace(/\s+/g, " ")).trim();
+}
+
+/**
+ * タグを消す。HTML の生の `<` は必ずタグの始まりなので、閉じずに終わるもの
+ * (`<script` で切れているもの) も消し、`<` を一つも残さない。
+ * 消したあとに `<scr<script>ipt>` のような組み合わせで新しいタグができないよう、
+ * 変わらなくなるまで繰り返す。
+ */
+function removeTags(html: string): string {
+  let text = html;
+  let previous: string;
+  do {
+    previous = text;
+    text = text.replace(/<[^>]*(?:>|$)/g, "");
+  } while (text !== previous);
+  return text;
 }
 
 /* ---------- 日本語の住所と価格 ---------- */
