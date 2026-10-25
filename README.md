@@ -64,6 +64,7 @@ bun run dev             # フロントをビルドして http://localhost:5173/ 
 bun run start           # 配信のみ (BUILD_CRON を入れると定期ビルドも走る)
 bun run lint            # oxlint と書式 (bun fmt --check)。直すのは bun run format
 bun run typecheck       # 型
+bun run test            # テスト (bun test)
 ```
 
 取得元を足すときは `sources/` にファイルを1つ作り、`sources/index.ts` の

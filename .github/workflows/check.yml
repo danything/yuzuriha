@@ -1,9 +1,13 @@
-# PR と main への push で、型・リント・整形を確かめる
+# PR と main への push で、型・リント・整形・テストを確かめる
 name: Check
 
 on:
   pull_request:
   push: { branches: ["main"] }
+
+# 読むだけなので、トークンにはこれだけ渡す
+permissions:
+  contents: read
 
 jobs:
   check:
@@ -17,3 +21,4 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run lint
+      - run: bun run test
