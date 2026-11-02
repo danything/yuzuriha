@@ -2,7 +2,7 @@
 # built from them. Losing the cache means asking 国土地理院 for every address
 # again, one request at a time, so the daily backup is what stands behind it.
 # That backup is a VolSync snapshot of the whole PVC (danything/gitops,
-# deploy/volsync/application.yaml); nothing here needs to opt in.
+# deploy/volsync/application.yaml), declared next to this file in volsync.yaml.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
