@@ -3,5 +3,8 @@ kind: Namespace
 metadata:
   name: yuzuriha
   annotations:
+    # このファイルはやめる (privileged-movers は ApplicationSet の managedNamespaceMetadata が付ける)。
+    # 消すときに Argo CD が Namespace ごと prune しないように、先に Prune=false を当てておく
+    argocd.argoproj.io/sync-options: Prune=false
     # バックアップ(VolSync)の mover を root で動かす。danything/gitops の deploy/volsync/application.yaml
     volsync.backube/privileged-movers: "true"
