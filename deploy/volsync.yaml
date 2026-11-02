@@ -1,36 +1,7 @@
 # Back up this app's PVC to R2 with VolSync (one restic repository per PVC: `<bucket>/volsync/yuzuriha/<pvc>`).
-# How, when, and how the Secret is built: danything/gitops, deploy/volsync/application.yaml.
+# The Secret (volsync-<pvc>) is in secrets.sops.yaml. How and when: danything/gitops, deploy/volsync/application.yaml.
 # It lives with the app, so removing the app removes this too (the R2 repository stays; see "やめる"
-# in gitops deploy/backup/README.md). A new PVC needs one more managedKubeSecretReferences entry and ReplicationSource.
-apiVersion: secrets.infisical.com/v1alpha1
-kind: InfisicalSecret
-metadata:
-  name: volsync
-  namespace: yuzuriha
-spec:
-  hostAPI: http://infisical.infisical.svc:8080/api
-  authentication:
-    kubernetesAuth:
-      identityId: f2bc3416-f196-4626-9bf3-c11693b32cc6
-      autoCreateServiceAccountToken: true
-      serviceAccountRef:
-        name: infisical-auth
-        namespace: infisical
-      secretsScope:
-        projectSlug: doa
-        envSlug: prod
-        secretsPath: /backup/backup
-  managedKubeSecretReferences:
-    - secretName: volsync-yuzuriha-data
-      secretNamespace: yuzuriha
-      template:
-        data:
-          RESTIC_REPOSITORY: "s3:{{ .endpoint.Value }}/{{ .bucket.Value }}/volsync/yuzuriha/yuzuriha-data"
-          RESTIC_PASSWORD: "{{ .repoPassword.Value }}"
-          AWS_ACCESS_KEY_ID: "{{ .accessKeyId.Value }}"
-          AWS_SECRET_ACCESS_KEY: "{{ .secretAccessKey.Value }}"
-          AWS_DEFAULT_REGION: auto
----
+# in gitops deploy/backup/README.md). A new PVC needs one more ReplicationSource and volsync-<pvc> in secrets.sops.yaml.
 apiVersion: volsync.backube/v1alpha1
 kind: ReplicationSource
 metadata:
