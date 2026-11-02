@@ -49,5 +49,5 @@ spec:
   restic:
     repository: volsync-yuzuriha-data
     copyMethod: Snapshot
-    retain: {daily: 7, weekly: 4, monthly: 6}
-    moverSecurityContext: {runAsUser: 0, runAsGroup: 0}
+    retain: { daily: 7, weekly: 4, monthly: 6 }
+    moverSecurityContext: { runAsUser: 0, runAsGroup: 0 }
