@@ -20,11 +20,9 @@ spec:
         projectSlug: doa
         envSlug: prod
         secretsPath: /backup/backup
-        recursive: false
   managedKubeSecretReferences:
     - secretName: volsync-yuzuriha-data
       secretNamespace: yuzuriha
-      creationPolicy: Orphan
       template:
         data:
           RESTIC_REPOSITORY: "s3:{{ .endpoint.Value }}/{{ .bucket.Value }}/volsync/yuzuriha/yuzuriha-data"
