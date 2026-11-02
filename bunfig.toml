@@ -2,3 +2,7 @@
 [fmt]
 # import を並べ替える (組の分け方は既定のまま。副作用だけの import は動かさない)
 sortImports = true
+ignorePatterns = [
+  # SOPS が書くファイル (sops edit のたびにインデント 4 で書き直す)
+  "deploy/*.sops.yaml",
+]
