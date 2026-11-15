@@ -1,10 +1,9 @@
 /**
  * フロントを assets/ に書き出す。
  *
- * maplibre-gl はバンドルに含めない。描画の本体は Web Worker で動き、
- * 自前でバンドルしても worker 用の
- * chunk は結局別に配ることになる。dist の .mjs をそのまま置いて、
- * index.html の importmap で解決させる。
+ * maplibre-gl はバンドルに含めない。描画の本体は Web Worker で動き、自前で
+ * バンドルしても worker 用の chunk は結局別に配ることになる。dist の .mjs を
+ * そのまま置いて、index.html の importmap で解決させる。
  */
 
 // このファイル自体はモジュールとして扱わせる（トップレベル await のため）
