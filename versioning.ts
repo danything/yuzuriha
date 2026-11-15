@@ -8,7 +8,7 @@
  *
  * そこで、ページを返すときに index.html の中の `./assets/…` に `?v=<中身のハッシュ>`
  * を足す。中身が替われば URL も替わるので、版の付いた URL は長くキャッシュさせて
- * よい。版の無い URL (maplibre が自分で読む shared / worker の chunk、main.js が
+ * よい。版の無い URL (maplibre が自分で読む worker の chunk、main.js が
  * 読む assets/gsi/ の注記とスプライト) と、古い版の URL は毎回問い合わせさせる。
  */
 
