@@ -6,6 +6,11 @@
  *
  * 掲載は「住所については現地見学の際にご案内します」という方針で、番地は伏せられている。
  * 座標も無いので、公開されている大字までの住所を geocode.ts で引いて地図に置く。
+ *
+ * 一部の記事には Google マップの埋め込みがあり、本文より細かい町名・字が載っている
+ * （本文は「美星町」、地図は「美星町宇戸谷」など）。地図の場所の名前は iframe の
+ * pb パラメータに base64 で入っているので、本文の住所を細かくできるときだけそれを使う。
+ * 地図の中心の座標は場所（町・字）の中心で物件の位置ではないので使わず、名前を引き直す。
  */
 
 import { type GeoCache, normalizeAddress } from "../geocode.ts";
@@ -79,8 +84,63 @@ function sections(html: string): Record<string, string> {
   return map;
 }
 
-/** 表記ゆれが多いので、住所は本文とタイトルの両方から拾う */
+/**
+ * 埋め込みの Google マップが指す場所の名前。郵便番号は落とす。
+ * src は `/maps/embed?pb=…!2z<base64url の名前>!…` の形
+ */
+export function mapPlacesOf(html: string): string[] {
+  const places: string[] = [];
+  const re =
+    /<iframe[^>]+src="https:\/\/www\.google\.com\/maps\/embed\?pb=([^"]+)"/g;
+  for (const [, pb] of html.matchAll(re)) {
+    const encoded = pb.match(/!2z([^!]+)/)?.[1];
+    if (!encoded) continue;
+    let name: string;
+    try {
+      name = Buffer.from(decodeURIComponent(encoded), "base64url").toString(
+        "utf8",
+      );
+    } catch {
+      continue;
+    }
+    name = name.replace(/^〒?\s*\d{3}-?\d{4}\s*/, "").replace(/\s+/g, "");
+    // 壊れた base64 は置換文字になる。そういう名前は使わない
+    if (name && !name.includes("�")) places.push(name);
+  }
+  return places;
+}
+
+const sameCity = (a: string, b: string): boolean =>
+  // 本文は郡を省くことがある（「世羅町」と「世羅郡世羅町」）
+  a === b || a.endsWith(`郡${b}`) || b.endsWith(`郡${a}`);
+
+/**
+ * 本文の住所を地図の場所の名前で細かくする。同じ市区町村で、本文の続きになっている
+ * ときだけ使う（地図の方が粗い・別の場所なら本文のまま）。
+ * 掲載の方針に合わせて町名・字までに留め、数字（番地・号）以降は使わない。
+ */
+export function refineByMap(address: string, places: string[]): string {
+  const base = splitAddress(address);
+  for (const place of places) {
+    const map = splitAddress(place);
+    if (map.prefecture !== base.prefecture || !sameCity(map.city, base.city)) {
+      continue;
+    }
+    const rest = map.rest.split(/[0-9０-９]|番地/)[0] ?? "";
+    if (rest.length > base.rest.length && rest.startsWith(base.rest)) {
+      return `${base.prefecture}${base.city}${rest}`;
+    }
+  }
+  return address;
+}
+
+/** 表記ゆれが多いので、住所は本文とタイトルの両方から拾う。地図があればそれで細かくする */
 export function addressOf(post: MakedosanPost): string {
+  const posted = postedAddressOf(post);
+  return posted ? refineByMap(posted, mapPlacesOf(post.content.rendered)) : "";
+}
+
+function postedAddressOf(post: MakedosanPost): string {
   const s = sections(post.content.rendered);
   const body = s.物件概要 ?? "";
   const shozai =
