@@ -117,15 +117,14 @@ DOM でタイルを動かす方式（Leaflet）よりパンが軽い。WebGL2 �
 使えない環境では地図の代わりにその旨を表示する。
 
 maplibre-gl はバンドルに含めず、`dist` の `.mjs` をそのまま `assets/` に置いて
-`importmap` で解決している。まとめても得にならないため。描画は Web Worker と
-共通コード（`maplibre-gl-shared.mjs`）を分け合っていて、自前でバンドルすると
-主スレッド側の 254KB (gzip) に加えて worker 用の chunk を別に配ることになる。
-dist のまま置けば主スレッドと worker が同じ chunk を使うので合計 281KB (gzip)。
-CDN は使っていない。
+`importmap` で解決している。描画は Web Worker でも動き、自前でバンドルしても
+worker 用の chunk（`maplibre-gl-worker.mjs`）は別に配ることになるので、まとめても得にならない。
+maplibre-gl 6.x の dist は `maplibre-gl.mjs` と `maplibre-gl-worker.mjs` の 2 つで、
+前の版にあった共通の chunk（`maplibre-gl-shared.mjs`）は無い。CDN は使っていない。
 
 `assets/` のファイル名は固定（`main.js` など）なので、サーバ（`server.ts`）がページを返すときに
 `index.html` の `./assets/…` へ中身のハッシュを `?v=` で足す（`versioning.ts`）。版の付いた URL は
-1 年 `immutable` でキャッシュさせ、版の無い URL（maplibre が自分で読む shared / worker の chunk、
+1 年 `immutable` でキャッシュさせ、版の無い URL（maplibre が自分で読む worker の chunk、
 `assets/gsi/` の注記とスプライト）と古い版の URL は毎回問い合わせさせる（変わっていなければ 304）。
 以前は 1 時間キャッシュさせていて、デプロイしても Cloudflare とブラウザに古い `main.js` が残った。
 

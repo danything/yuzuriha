@@ -1,10 +1,9 @@
 /**
  * フロントを assets/ に書き出す。
  *
- * maplibre-gl はバンドルに含めない。描画の本体は Web Worker と共通コード
- * (maplibre-gl-shared.mjs) を分け合っていて、自前でバンドルしても worker 用の
- * chunk は結局別に配ることになる。dist の .mjs をそのまま置いて、
- * index.html の importmap で解決させる。
+ * maplibre-gl はバンドルに含めない。描画の本体は Web Worker で動き、自前で
+ * バンドルしても worker 用の chunk は結局別に配ることになる。dist の .mjs を
+ * そのまま置いて、index.html の importmap で解決させる。
  */
 
 // このファイル自体はモジュールとして扱わせる（トップレベル await のため）
@@ -13,10 +12,9 @@ export {};
 const OUT = "assets";
 const MAPLIBRE = "node_modules/maplibre-gl/dist";
 
-// maplibre-gl.mjs は shared / worker のチャンクを相対パスで読むので一緒に置く
+// maplibre-gl.mjs は worker のチャンクを相対パスで読むので一緒に置く (6.x の dist に shared のチャンクは無い)
 const copies = [
   [`${MAPLIBRE}/maplibre-gl.mjs`, `${OUT}/maplibre-gl.mjs`],
-  [`${MAPLIBRE}/maplibre-gl-shared.mjs`, `${OUT}/maplibre-gl-shared.mjs`],
   [`${MAPLIBRE}/maplibre-gl-worker.mjs`, `${OUT}/maplibre-gl-worker.mjs`],
   [`${MAPLIBRE}/maplibre-gl.css`, `${OUT}/maplibre-gl.css`],
 ];
