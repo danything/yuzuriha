@@ -22,6 +22,7 @@
 app.ts            CLI。取得・住所検索・生成を呼び分けるだけ
 build.ts          取得 → 住所検索 → map.json。ステータスと地方もここで揃える
 server.ts         配信と定期ビルド (Bun.serve + Bun.cron)。手元でも自宅鯖でも同じもの
+versioning.ts     index.html の assets/ の URL に中身の版 (?v=) を足す。版の付いた URL だけ長くキャッシュ
 sources/          取得元ごとの実装（1ファイル1サイト）
   index.ts          取得元の一覧。ここに足せば全部の処理に乗る
   common.ts         名乗り・待ち・生データの置き場・住所と価格の読み方
@@ -121,6 +122,12 @@ maplibre-gl はバンドルに含めず、`dist` の `.mjs` をそのまま `ass
 主スレッド側の 254KB (gzip) に加えて worker 用の chunk を別に配ることになる。
 dist のまま置けば主スレッドと worker が同じ chunk を使うので合計 281KB (gzip)。
 CDN は使っていない。
+
+`assets/` のファイル名は固定（`main.js` など）なので、サーバ（`server.ts`）がページを返すときに
+`index.html` の `./assets/…` へ中身のハッシュを `?v=` で足す（`versioning.ts`）。版の付いた URL は
+1 年 `immutable` でキャッシュさせ、版の無い URL（maplibre が自分で読む shared / worker の chunk、
+`assets/gsi/` の注記とスプライト）と古い版の URL は毎回問い合わせさせる（変わっていなければ 304）。
+以前は 1 時間キャッシュさせていて、デプロイしても Cloudflare とブラウザに古い `main.js` が残った。
 
 - 下地は [danything/sonae](https://github.com/danything/sonae) と同じ形にそろえてある（下の「地図の層と出典」）。
   地図は 1 つだけで、層はいつも全部出す。背景や層を選ぶ一覧は置かない（持ち主の決定、2026-11-16）。前の切替は選んだものを覚えていなかった（URL にも端末にも残していない）ので、消す設定も無い
