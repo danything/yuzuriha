@@ -23,6 +23,85 @@
   <body>
     <div id="map"></div>
 
+    <!-- 地名・住所の検索 (src/place-search.ts)。物件の絞り込みの検索とは別で、地図を寄せるだけ -->
+    <div class="place-search" role="search">
+      <input
+        id="place-q"
+        type="search"
+        role="combobox"
+        aria-label="地名・住所で地図を移動"
+        aria-autocomplete="list"
+        aria-expanded="false"
+        aria-controls="place-list"
+        placeholder="地名・住所へ移動"
+        autocomplete="off"
+        enterkeyhint="search"
+      />
+      <ul
+        id="place-list"
+        class="place-search__list"
+        role="listbox"
+        aria-label="場所の候補"
+        hidden
+      ></ul>
+      <p
+        id="place-status"
+        class="place-search__status"
+        role="status"
+        hidden
+      ></p>
+    </div>
+
+    <!--
+      地図の出典。国土地理院の決まり (表示されている間は常に見えるように明示) に沿い、地図の隅にいつも出す。
+      押すと全文が開く。文は README の「地図」に合わせる
+    -->
+    <details class="map-credit">
+      <summary>出典: 国土地理院 ほか</summary>
+      <div class="map-credit__body">
+        <p>
+          地図: 出典：国土地理院（<a
+            href="https://maps.gsi.go.jp/development/ichiran.html"
+            target="_blank"
+            rel="noopener"
+            >地理院タイル</a
+          >・<a
+            href="https://github.com/gsi-cyberjapan/optimal_bvmap"
+            target="_blank"
+            rel="noopener"
+            >国土地理院最適化ベクトルタイル</a
+          >）。地理院タイルに物件の位置を追記して掲載。国土地理院最適化ベクトルタイルを加工して作成
+        </p>
+        <p>
+          写真:
+          地理院タイル「写真」(シームレス空中写真。国土地理院)・Landsat8画像（GSI,
+          TSIC, GEO Grid/AIST）・Landsat8画像（courtesy of the U.S. Geological
+          Survey）・海底地形（GEBCO）・世界衛星モザイク画像（NASA LP DAAC,
+          USGS/EROS Center）・GRUS画像（© Axelspace）
+        </p>
+        <p>
+          地名・住所の検索: 国土地理院の「<a
+            href="https://maps.gsi.go.jp/"
+            target="_blank"
+            rel="noopener"
+            >地理院地図</a
+          >」の住所検索 (住所は「<a
+            href="https://geocode.csis.u-tokyo.ac.jp/"
+            target="_blank"
+            rel="noopener"
+            >CSISシンプルジオコーディング実験</a
+          >（街区レベル位置参照情報）」による)
+          に、ブラウザから直接問い合わせます。送るのは打った文字だけで、譲葉のサーバーには送らず、残しません
+        </p>
+        <p>
+          描画:
+          <a href="https://maplibre.org/" target="_blank" rel="noopener"
+            >MapLibre GL JS</a
+          >
+        </p>
+      </div>
+    </details>
+
     <button
       id="panel-toggle"
       class="panel-toggle"

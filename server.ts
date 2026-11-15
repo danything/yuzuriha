@@ -28,10 +28,12 @@ const ROUTES: Record<string, { path: string; cache: string }> = {
 };
 
 // assets/ は起動時にあるものをそのまま載せる。中身は maplibre の chunk まで
-// 数えると6つあり、build-web.ts と名前を二重に持ちたくない。
+// 数えると6つあり、build-web.ts と名前を二重に持ちたくない。地理院の注記とスプライト
+// (assets/gsi/。tools/gsi/build.ts が書く) もあるので、下のフォルダまで走査する。
 // 走査した名前としか照合しないので、パスを組み立てるのと違って `..` は入らない。
 try {
-  for await (const name of new Bun.Glob("*").scan("assets")) {
+  for await (const found of new Bun.Glob("**/*").scan("assets")) {
+    const name = found.replaceAll("\\", "/");
     ROUTES[`/assets/${name}`] = {
       path: `assets/${name}`,
       cache: "public, max-age=3600",
