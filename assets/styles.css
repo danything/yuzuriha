@@ -556,23 +556,6 @@ button:focus-visible {
   background: #1b242b;
 }
 
-.maplibregl-ctrl-attrib.maplibregl-compact {
-  background: rgba(15, 20, 24, 0.75);
-  color: var(--muted);
-}
-
-.maplibregl-ctrl-attrib-inner {
-  font-size: 10px;
-}
-
-.maplibregl-ctrl-attrib a {
-  color: var(--accent);
-}
-
-.maplibregl-ctrl-attrib-button {
-  filter: invert(1);
-}
-
 .maplibregl-ctrl-scale {
   background: rgba(15, 20, 24, 0.6);
   border-color: var(--line);
@@ -580,55 +563,138 @@ button:focus-visible {
   font-size: 10px;
 }
 
-/* 背景切替（自前のコントロール） */
-
-.layers {
-  position: relative;
+/* 右下の操作は、角にぴったり付けた出典の帯の上に置く */
+.maplibregl-ctrl-bottom-right {
+  bottom: 16px;
 }
 
-.layers__toggle {
-  width: 29px;
-  height: 29px;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font-size: 15px;
-  line-height: 1;
+/* ---------- 地図の出典 ---------- */
+
+/*
+ * 国土地理院の決まり (表示されている間は常に見えるように明示) に沿い、いつも出す。
+ * 地図の右下の角にぴったり付けた、余白の無い小さく薄い帯 (よくある Web 地図の出典の形)。
+ * 写真の上でも読めるよう、地の色を 65% の濃さで敷く。押すと全文が上に開く
+ */
+.map-credit {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  max-width: 100%;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* 開いた全文は検索の欄より上に重ねる */
+.map-credit[open] {
+  z-index: 1003;
+}
+
+.map-credit > summary {
+  display: block;
+  padding: 0 4px;
+  background: color-mix(in srgb, var(--bg) 65%, transparent);
   cursor: pointer;
+  list-style: none;
+  text-align: right;
 }
 
-.layers__menu {
+.map-credit > summary::-webkit-details-marker {
+  display: none;
+}
+
+.map-credit > summary:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.map-credit__body {
   position: absolute;
   right: 0;
   bottom: 100%;
-  margin-bottom: 6px;
-  padding: 8px 10px;
-  width: max-content;
+  width: min(420px, calc(100vw - 24px));
+  max-height: 60dvh;
+  overflow-y: auto;
+  margin: 0 0 6px;
+  padding: 8px 12px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  font-size: 11px;
+  color: var(--text);
+}
+
+.map-credit__body p {
+  margin: 4px 0;
+}
+
+.map-credit__body a {
+  color: var(--accent);
+}
+
+/* ---------- 地名・住所の検索 ---------- */
+
+.place-search {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1002;
+  width: 280px;
+}
+
+.place-search input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.place-search input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.place-search__list,
+.place-search__status {
+  margin: 6px 0 0;
   background: var(--panel-solid);
   border: 1px solid var(--line);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
-.layers__item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 0;
+.place-search__list {
+  max-height: 50dvh;
+  overflow-y: auto;
+  padding: 4px;
+  list-style: none;
+}
+
+.place-search__opt {
+  padding: 7px 8px;
+  border-radius: 6px;
   font-size: 12px;
-  color: var(--text);
-  white-space: nowrap;
+  line-height: 1.4;
   cursor: pointer;
 }
 
-.layers__item input {
-  accent-color: var(--accent);
+.place-search__opt:hover,
+.place-search__opt[aria-selected="true"] {
+  background: rgba(255, 255, 255, 0.09);
 }
 
-.layers__sep {
-  margin: 6px 0;
-  border: 0;
-  border-top: 1px solid var(--line);
+.place-search__status {
+  padding: 7px 12px;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 /* ---------- トースト ---------- */
@@ -664,7 +730,7 @@ button:focus-visible {
 
   .panel-toggle {
     top: auto;
-    /* 下端は出典表示が占めるので、その上に置く */
+    /* 下端の縮尺と並ばないよう、少し上に置く */
     bottom: 52px;
     left: 50%;
     translate: -50% 0;
@@ -674,8 +740,34 @@ button:focus-visible {
     flex-direction: column;
   }
 
+  /* 出典は上の角に移すので、右下の操作は下端まで下ろす */
+  .maplibregl-ctrl-bottom-right {
+    bottom: 0;
+  }
+
   /* パネルが画面の下半分を覆うので、地図のコントロールはその上に逃がす */
   body:not(.panel-hidden) .maplibregl-ctrl-bottom-right {
     bottom: 58dvh;
+  }
+
+  /*
+   * 下はパネルが覆うので、出典は地図の右上の角にぴったり付ける (パネルを開いても隠れない)。
+   * 全文は下に開く。検索の欄はその帯の下に置く
+   */
+  .map-credit {
+    top: 0;
+    bottom: auto;
+  }
+
+  .map-credit__body {
+    top: 100%;
+    bottom: auto;
+    margin: 6px 0 0;
+  }
+
+  .place-search {
+    top: 22px;
+    left: 12px;
+    width: auto;
   }
 }

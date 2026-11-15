@@ -10,5 +10,5 @@
     "types": ["bun"],
     "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
-  "include": ["*.ts", "sources/*.ts", "src/*.ts"]
+  "include": ["*.ts", "sources/*.ts", "src/*.ts", "tools/*/*.ts"]
 }
