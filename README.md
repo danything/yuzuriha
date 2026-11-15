@@ -123,7 +123,7 @@ dist のまま置けば主スレッドと worker が同じ chunk を使うので
 CDN は使っていない。
 
 - 下地は [danything/sonae](https://github.com/danything/sonae) と同じ形にそろえてある（下の「地図の層と出典」）。
-  層はいつも全部出し、背景の切替やオン・オフは置かない
+  地図は 1 つだけで、層はいつも全部出す。背景や層を選ぶ一覧は置かない（持ち主の決定、2026-11-16）。前の切替は選んだものを覚えていなかった（URL にも端末にも残していない）ので、消す設定も無い
 - ステータスは取得元をまたいで揃えている（フィールドマッチングの「公開中」は
   他サイトの「募集中」、「交渉中」は負動産の掲示板の「商談中」にあたる）
 - 地方は都道府県から引いている。掲載側の値は使わない（zero.estate は持っているが、
@@ -160,11 +160,13 @@ CDN は使っていない。
 - 配信は `https://cyberjapandata.gsi.go.jp/xyz/optimal_bvmap-v1/optimal_bvmap-v1.pmtiles`（PMTiles の 1 ファイル、ズーム 4〜16）。
   範囲（Range）を指定して要るタイルだけを読む（CORS は `*`）。`pmtiles`（Protomaps、BSD-3-Clause）で MapLibre に読ませる（`main.js` に入る）。
   前の `{z}/{x}/{y}.pbf` はデータが 2023-10 で止まっているので使わない
-- 試験公開で、URL や属性が変わることがある。変わったら `src/map-style.ts` の `GSI_VECTOR_URL` と `tools/gsi/build.ts` を直す
+- 試験公開で、URL や属性が変わることがある。変わったら `src/map-style.ts` の `GSI_VECTOR_URL` と `tools/gsi/build.ts` を直す。
+  写真は出るのに道路と地名が全部消えたら、まずこの配信を疑う（[optimal_bvmap の README](https://github.com/gsi-cyberjapan/optimal_bvmap) にお知らせが出る）
 - [README](https://github.com/gsi-cyberjapan/optimal_bvmap) は国土地理院コンテンツ利用規約（公共データ利用規約 第 1.0 版）で使えるとしている。出典は「国土地理院最適化ベクトルタイル」と書き、加工したことも書く
 - **字体（glyphs）は読まない。** MapLibre 6 はスタイルに `glyphs` の URL が無いと、字を端末の字体でその場で描く。
   字体の名前は `"Noto Sans JP", sans-serif`（入っていない端末は既定のゴシック）。前はクラスタの件数だけ MapLibre の配布のフォントを外から読んでいたが、それもやめた
-- 注記とスプライトを写し直すときは `bun run gsi`（コンテナの中で。`tools/gsi/build.ts` の頭のコメント）
+- 注記とスプライトを写し直すときは `bun run gsi`（コンテナの中で。`tools/gsi/build.ts` の頭のコメント）。
+  スプライトの `std@2x.*` は上流でも `std.*` と同じファイル（2026-11-16 に確かめた）なので、中身が同じなのは写し損ないではない
 
 前は Esri World Imagery を既定にして、国土地理院の写真・淡色地図への切替と Esri の地名ラベルを置いていた。
 sonae の形（写真に道路と地名を重ねる）にそろえるため、どれも外した（2026-11-16）。

@@ -28,6 +28,16 @@ describe("buildStyle", () => {
     expect(style.sprite).toBe("https://y.example/assets/gsi/sprite/std");
   });
 
+  test("下地は 1 つだけで、隠した層も無い (選ぶ一覧を置かない)", () => {
+    const rasters = style.layers.filter((l) => l.type === "raster");
+    expect(rasters.map((l) => l.id)).toEqual(["photo"]);
+    expect(
+      style.layers.filter(
+        (l) => (l.layout as { visibility?: string })?.visibility === "none",
+      ),
+    ).toEqual([]);
+  });
+
   test("字体は外から読まない (glyphs が無い)", () => {
     expect(style.glyphs).toBeUndefined();
     const count = style.layers.find((l) => l.id === "cluster-count");

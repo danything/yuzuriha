@@ -96,6 +96,9 @@ export function setupPlaceSearch(handlers: {
   const choose = (i: number) => {
     const place = places[i];
     if (!place) return;
+    // 待っている問い合わせは捨てる (選んだあとに候補を開き直さない)
+    clearTimeout(timer);
+    pending?.abort();
     input.value = place.label;
     close();
     handlers.pick(place);
@@ -127,7 +130,12 @@ export function setupPlaceSearch(handlers: {
     } else if (event.key === "ArrowUp" && open) {
       event.preventDefault();
       setActive(active <= 0 ? places.length - 1 : active - 1);
-    } else if (event.key === "Enter" && !event.isComposing) {
+    } else if (
+      event.key === "Enter" &&
+      // 日本語入力の確定の Enter では探さない (Safari は確定の Enter を isComposing なしで送り、keyCode が 229)
+      !event.isComposing &&
+      event.keyCode !== 229
+    ) {
       event.preventDefault();
       if (open && active >= 0) choose(active);
       else void run(input.value);
