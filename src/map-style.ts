@@ -2,7 +2,7 @@
  * 地図の下地と、重ねる層 (README の「地図」)。MapLibre の style を組むだけで、DOM にも MapLibre にも触らない
  * (試験できるように)。
  *
- * 下地は danything/sonae と同じ: 地理院タイル「写真」の上に、地理院地図Vector (国土地理院最適化ベクトルタイル) の
+ * 下地は danything/sonae と同じ: 地理院タイル「写真」(引いたときは NASA の Blue Marble) の上に、地理院地図Vector (国土地理院最適化ベクトルタイル) の
  * 道路と注記 (地名・施設の記号) を重ねる。注記の層は tools/gsi/build.ts が assets/gsi/anno.json に書き出し、
  * 地図を作ったあとで差し込む (`ANNO_BEFORE` の下)。
  */
@@ -10,6 +10,19 @@
 import type { StyleSpecification } from "maplibre-gl";
 
 const GSI = "https://cyberjapandata.gsi.go.jp/xyz";
+
+/**
+ * 地理院タイル「写真」を出し始めるズーム。これより引いているときは Blue Marble を出す (README の「地図の層と出典」)。
+ * 写真の 8 以下 (世界衛星モザイク) は、画像の無い所が灰色の三角として焼き込まれ、海に継ぎ目の段差もあるため
+ */
+export const PHOTO_MIN_ZOOM = 9;
+
+/**
+ * 引いたとき (ズーム 8 まで) の下地。NASA GIBS の Blue Marble (2004 年 8 月、陰影つき)。
+ * 海は暗い紺で、地理院の写真 (9 から) の海とつながる。GIBS は 8 までなので、9 からは引き伸ばす (sonae と同じ)
+ */
+export const BLUE_MARBLE_TILES =
+  "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg";
 
 /**
  * 地理院地図Vector の PMTiles。試験公開で URL が変わりうる。
@@ -149,11 +162,18 @@ export function buildStyle(
     // 字体 (glyphs) の URL は書かない。MapLibre は端末の字体で字を描く (外から字体を読まない)
     sprite: `${spriteBase}/std`,
     sources: {
+      "blue-marble": {
+        type: "raster",
+        tiles: [BLUE_MARBLE_TILES],
+        tileSize: 256,
+        minzoom: 0,
+        maxzoom: 8,
+      },
       photo: {
         type: "raster",
         tiles: [`${GSI}/seamlessphoto/{z}/{x}/{y}.jpg`],
         tileSize: 256,
-        minzoom: 2,
+        minzoom: PHOTO_MIN_ZOOM,
         maxzoom: 18,
       },
       gsi: { type: "vector", url: `pmtiles://${GSI_VECTOR_URL}` },
@@ -170,7 +190,32 @@ export function buildStyle(
       },
     },
     layers: [
-      { id: "photo", type: "raster", source: "photo" },
+      // 引いたときの下地 (Blue Marble)。写真の出始め (9) から 1 段重ねて 10 まで残し、
+      // 境で写真のタイルを読んでいる間も白く抜けないようにする (写真は透かさない JPEG なので、重ね終われば上を覆う)
+      {
+        id: "blue-marble",
+        type: "raster",
+        source: "blue-marble",
+        maxzoom: PHOTO_MIN_ZOOM + 1,
+      },
+      // 写真は 9 から。陸の近くの海は Blue Marble の暗い紺より明るい青なので、半段かけて透かしから重ねる
+      {
+        id: "photo",
+        type: "raster",
+        source: "photo",
+        minzoom: PHOTO_MIN_ZOOM,
+        paint: {
+          "raster-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            PHOTO_MIN_ZOOM,
+            0,
+            PHOTO_MIN_ZOOM + 0.5,
+            1,
+          ],
+        },
+      },
       ...roadLayers(),
       // 地理院の注記 (地名・施設の記号) は、地図を作ったあとでここ (検索で選んだ所の印の下) に差し込む
       {
