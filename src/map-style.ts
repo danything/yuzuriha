@@ -34,6 +34,8 @@ export const FALLBACK_COLOR = "#94a3b8";
 export const ACCENT = "#34d399";
 /** 地名・住所の検索で選んだ所の印 (物件の色と分ける。sonae と同じ白い縁の橙の丸) */
 export const PLACE_COLOR = "#ff8a3d";
+/** 現在地の青い点の色 (sonae と同じ。白い縁を太く付ける) */
+export const ME_COLOR = "#1a73e8";
 
 /* 負動産の掲示板は番地までの住所を出さないため、同じ大字の複数物件が
    同一座標に重なることがある。ズームでは絶対に割れないので、その点数は
@@ -156,6 +158,8 @@ export function buildStyle(
       },
       gsi: { type: "vector", url: `pmtiles://${GSI_VECTOR_URL}` },
       place: { type: "geojson", data: EMPTY },
+      // 現在地 (src/locate.ts の meFeatures)。端末の中で描くだけ
+      me: { type: "geojson", data: EMPTY },
       // クラスタリングは MapLibre 側 (supercluster) に任せる
       properties: {
         type: "geojson",
@@ -233,6 +237,37 @@ export function buildStyle(
           ],
           "circle-stroke-width": 2,
           "circle-stroke-color": "rgba(255, 255, 255, 0.92)",
+        },
+      },
+      // 現在地 (いちばん上。sonae と同じ)。誤差の円は淡く塗り、点は白い縁の青
+      {
+        id: "me-accuracy",
+        type: "fill",
+        source: "me",
+        filter: ["==", ["get", "kind"], "accuracy"],
+        paint: { "fill-color": ME_COLOR, "fill-opacity": 0.15 },
+      },
+      {
+        id: "me-accuracy-line",
+        type: "line",
+        source: "me",
+        filter: ["==", ["get", "kind"], "accuracy"],
+        paint: {
+          "line-color": ME_COLOR,
+          "line-opacity": 0.5,
+          "line-width": 1,
+        },
+      },
+      {
+        id: "me-dot",
+        type: "circle",
+        source: "me",
+        filter: ["==", ["get", "kind"], "dot"],
+        paint: {
+          "circle-radius": 7,
+          "circle-color": ME_COLOR,
+          "circle-stroke-color": "#fff",
+          "circle-stroke-width": 2.5,
         },
       },
     ],

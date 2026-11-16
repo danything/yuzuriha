@@ -55,9 +55,12 @@
           <img src="./assets/favicon.svg" alt="" width="24" height="24" />
           <span>譲葉</span>
         </h1>
-        <!-- 地名・住所の検索はここ (広い形) か一覧の先頭 (スマホの形) に src/main.ts が置く -->
-        <div class="header-search" id="place-slot-wide">
-          <!-- 地名・住所の検索 (src/place-search.ts)。物件の絞り込みの検索とは別で、地図を寄せるだけ -->
+        <!-- 検索の欄はここ (広い形) か一覧の先頭 (スマホの形) に src/main.ts が置く -->
+        <div class="header-search" id="search-slot-wide">
+          <!--
+            検索の欄は 1 つ。打つと一覧を物件名・住所で絞り込み (src/main.ts)、
+            候補に地名・住所を出して、選ぶと地図をそこへ寄せる (src/place-search.ts)
+          -->
           <div class="place-search" role="search">
             <label class="search-field">
               <svg
@@ -82,55 +85,79 @@
                 />
               </svg>
               <input
-                id="place-q"
+                id="search"
                 type="search"
                 role="combobox"
-                aria-label="地名・住所で地図を移動"
+                aria-label="物件名・住所で絞り込み、地名で地図を移動"
                 aria-autocomplete="list"
                 aria-expanded="false"
                 aria-controls="place-list"
-                placeholder="地名・住所へ移動"
+                placeholder="物件名・住所で絞り込み、地名で地図を移動"
                 autocomplete="off"
                 enterkeyhint="search"
               />
             </label>
-            <ul
-              id="place-list"
-              class="place-search__list"
-              role="listbox"
-              aria-label="場所の候補"
-              hidden
-            ></ul>
-            <p
-              id="place-status"
-              class="place-search__status"
-              role="status"
-              hidden
-            ></p>
+            <!-- 場所の候補 (sonae の SearchField と同じ形。見出し・候補・状態の 1 行) -->
+            <div class="place-search__box" id="place-box" hidden>
+              <p class="place-search__head tiny muted">場所の候補</p>
+              <ul id="place-list" role="listbox" aria-label="場所の候補"></ul>
+              <p
+                id="place-status"
+                class="place-search__status tiny muted"
+                role="status"
+              ></p>
+            </div>
           </div>
+        </div>
+        <!-- 関連するほかのサイト (取得元ではない)。広い形はここ、スマホの形は一覧のいちばん下に src/main.ts が置く -->
+        <div class="header-end" id="elsewhere-slot-wide">
+          <nav class="elsewhere" id="elsewhere" aria-label="ほかのサイト">
+            <span class="elsewhere__head">ほかのサイト</span>
+            <a href="https://zero.estate/" target="_blank" rel="noopener"
+              >みんなの0円物件<svg
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                aria-hidden="true"
+              >
+                <path
+                  d="M7 17 17 7M8 7h9v9"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                /></svg
+              ><span class="visually-hidden"> (新しいタブで開きます)</span></a
+            >
+            <a href="https://akisol.jp/" target="_blank" rel="noopener"
+              >アキソル<svg
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                aria-hidden="true"
+              >
+                <path
+                  d="M7 17 17 7M8 7h9v9"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                /></svg
+              ><span class="visually-hidden"> (新しいタブで開きます)</span></a
+            >
+          </nav>
         </div>
       </header>
 
       <main class="stage">
         <!-- 右の列 (広い形) か、地図の上に重ねる面 (スマホの形の「一覧」のタブ) -->
         <section class="list-pane" id="panel-body" aria-label="絞り込みと一覧">
-          <div class="phone-search" id="place-slot-phone"></div>
+          <div class="phone-search" id="search-slot-phone"></div>
 
           <div class="browse stack" id="browse">
             <p class="meta tiny muted" id="meta">読み込み中…</p>
-
-            <div class="field">
-              <label class="field__label" for="search"
-                >物件名・住所で検索</label
-              >
-              <input
-                id="search"
-                class="field__input"
-                type="search"
-                placeholder="例: 高山市 別荘"
-                autocomplete="off"
-              />
-            </div>
 
             <section class="field">
               <h2 class="field__label">ステータス</h2>
@@ -237,6 +264,7 @@
           <footer class="foot tiny muted">
             <p>物件データ: <span id="sources-credit"></span></p>
             <p>掲載内容は各サイトで確認してください</p>
+            <div id="elsewhere-slot-phone"></div>
           </footer>
         </section>
 

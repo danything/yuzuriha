@@ -44,6 +44,15 @@ describe("buildStyle", () => {
     expect(count?.layout).toMatchObject({ "text-font": TEXT_FONT });
   });
 
+  test("現在地はいちばん上 (誤差の円 → 点)", () => {
+    expect(style.sources.me).toMatchObject({ type: "geojson" });
+    expect(ids.slice(-3)).toEqual([
+      "me-accuracy",
+      "me-accuracy-line",
+      "me-dot",
+    ]);
+  });
+
   test("重ねる順は 写真 → 道路 → (注記) → 検索の印 → 物件", () => {
     expect(ids[0]).toBe("photo");
     const lastRoad = Math.max(
