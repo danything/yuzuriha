@@ -527,6 +527,49 @@ option {
   height: 1.5rem;
 }
 
+/*
+ * ---- ほかのサイト (取得元ではない関連サイト) ----
+ * 広い形はヘッダーの右、スマホの形は一覧のいちばん下 (出典の下)。押せる事実と同じく控えた字に外へ出る印を添え、
+ * 「ほかのサイト」と見出しを付けて取得元 (出典の「物件データ」) と分ける
+ */
+.header-end {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.elsewhere {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--so-space-3);
+  row-gap: var(--so-space-1);
+  color: var(--so-muted);
+  font-size: var(--so-text-sm);
+}
+.elsewhere a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  color: var(--so-muted);
+  text-decoration: none;
+}
+.elsewhere a:hover {
+  color: var(--so-fg);
+  text-decoration: underline;
+}
+.foot .elsewhere {
+  font-size: var(--so-text-xs);
+}
+/* 読み上げだけに渡す字 */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* ---- 地名・住所の検索の欄と候補 (sonae の SearchField と同じ形) ---- */
 .place-search {
   position: relative;
@@ -567,31 +610,44 @@ option {
   font-size: var(--so-text-sm);
   outline: none;
 }
-/* 場所の候補。欄の下に重なるので操作の層 (メニューと同じ面と影)。選んでいる候補はメニューと同じ地の色 */
-.place-search__list,
-.place-search__status {
+/*
+ * 場所の候補。欄の下に重なるので操作の層 (メニューと同じ面と影)。選んでいる候補はメニューと同じ地の色。
+ * 形は sonae の SearchField の候補と同じ (控えた字の見出し・候補・状態の 1 行)
+ */
+.place-search__box {
   position: absolute;
+  top: calc(100% + var(--so-space-1));
   left: 0;
   right: 0;
   z-index: 20;
+  display: flex;
+  flex-direction: column;
+  max-height: min(24rem, 60dvh);
   margin: 0;
+  padding: var(--so-space-2);
   border-radius: var(--so-radius-lg);
   background: var(--so-pop);
   box-shadow: var(--so-shadow-pop);
   color: var(--pico-color);
 }
-.place-search__list {
-  top: calc(100% + var(--so-space-1));
-  max-height: min(24rem, 60dvh);
+.place-search__box[hidden] {
+  display: none;
+}
+.place-search__box ul {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
   overflow-y: auto;
-  padding: var(--so-space-2);
   list-style: none;
 }
+.place-search__head,
 .place-search__status {
-  top: calc(100% + var(--so-space-1));
-  padding: var(--so-space-2) var(--so-space-3);
-  color: var(--so-muted);
-  font-size: var(--so-text-sm);
+  margin: 0;
+  padding: var(--so-space-1) var(--so-space-3);
+}
+.place-search__status[hidden] {
+  display: none;
 }
 .place-search__opt {
   margin: 0;
@@ -951,6 +1007,40 @@ option {
 }
 [data-theme="dark"] .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
   filter: invert(1);
+}
+/*
+ * 現在地のボタン (sonae の locate-button と同じ形)。オンは主の色のアイコンと短い下線。
+ * 探している間はアイコンを薄くし (時間で動き続けるものは足さない)、取れたら真ん中の丸を足す
+ */
+.maplibregl-ctrl-group .locate-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  color: var(--so-fg);
+  transition: scale var(--so-duration) var(--so-ease);
+}
+.locate-button:active {
+  scale: 0.97;
+}
+.locate-button[aria-pressed="true"] {
+  color: var(--so-primary-text);
+}
+.locate-button[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  bottom: 0.45rem;
+  left: 50%;
+  width: 0.75rem;
+  height: var(--so-mark);
+  border-radius: var(--so-mark);
+  background: var(--pico-primary);
+  translate: -50% 0;
+}
+.locate-button[data-locating="waiting"] svg {
+  opacity: 0.45;
+}
+.locate-button:not([data-locating="on"]) .locate-fix {
+  display: none;
 }
 .maplibregl-ctrl-scale {
   border-color: var(--so-muted);

@@ -22,6 +22,14 @@ import { Protocol } from "pmtiles";
 
 import type { MapProperty } from "../types.ts";
 import {
+  autoLocate,
+  type GeoPermission,
+  LOCATE_KEY,
+  LOCATE_ZOOM,
+  meFeatures,
+  readLocate,
+} from "./locate.ts";
+import {
   ANNO_BEFORE,
   buildStyle,
   CLUSTER_MAX_ZOOM,
@@ -170,10 +178,176 @@ map.once("load", () => {
 map.addControl(new ScaleControl({ unit: "metric" }), "bottom-right");
 map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
 
+/* ---------- 現在地 (src/locate.ts。sonae の現在地にそろえる) ---------- */
+
+// 押している間だけ watchPosition で追う。位置は端末の中で描くだけで、サーバーには送らず、覚えもしない。
+// 開いたら最初から追う (切ったと覚えている端末と、許可を拒まれている端末は除く)
+type Locating = "off" | "waiting" | "on";
+let locating: Locating = "off";
+let watchId: number | undefined;
+/** 今回始めてから、もう寄せたか (寄せるのは押して始めたときの最初の 1 回だけ。自動で始めたときは寄せない) */
+let panned = true;
+/** 押して始めたか (取れないわけを出すのは押したときだけ。自動で始めて取れないときは何も言わない) */
+let asked = false;
+
+const LOCATE_ICON = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12h3M19 12h3M12 2v3M12 19v3"/><circle cx="12" cy="12" r="7"/><circle class="locate-fix" cx="12" cy="12" r="3"/></svg>`;
+const locateButton = document.createElement("button");
+locateButton.type = "button";
+locateButton.className = "locate-button";
+locateButton.innerHTML = LOCATE_ICON;
+locateButton.addEventListener("click", toggleLocate);
+
+/** ボタンの見た目と名前を、いまの状態に合わせる (オンは主の色と短い下線。探している間はアイコンを薄く) */
+function paintLocate(): void {
+  locateButton.dataset.locating = locating;
+  locateButton.setAttribute("aria-pressed", String(locating !== "off"));
+  const label =
+    locating === "off"
+      ? "現在地を表示"
+      : locating === "waiting"
+        ? "現在地を探しています (押すとやめる)"
+        : "現在地の表示をやめる";
+  locateButton.setAttribute("aria-label", label);
+  locateButton.title = locating === "waiting" ? "現在地の表示をやめる" : label;
+}
+paintLocate();
+
+map.addControl(
+  {
+    onAdd: () => {
+      const box = document.createElement("div");
+      box.className = "maplibregl-ctrl maplibregl-ctrl-group";
+      box.append(locateButton);
+      return box;
+    },
+    onRemove: () => {},
+  },
+  "bottom-right",
+);
+
+function rememberLocate(on: boolean): void {
+  try {
+    if (on) localStorage.removeItem(LOCATE_KEY);
+    else localStorage.setItem(LOCATE_KEY, "off");
+  } catch {
+    // 覚えられない端末では、次に開いたときもオンから始まるだけ
+  }
+}
+
+type Me = { lon: number; lat: number; accuracy: number };
+/** いま描いている位置。地図の style を読む前に取れたら、読んだあとで描く */
+let lastMe: Me | undefined;
+map.once("load", () => drawMe(lastMe));
+
+function drawMe(me: Me | undefined): void {
+  lastMe = me;
+  (map.getSource("me") as GeoJSONSource | undefined)?.setData(
+    me
+      ? meFeatures(me.lon, me.lat, me.accuracy)
+      : { type: "FeatureCollection", features: [] },
+  );
+}
+
+function stopLocating(): void {
+  if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+  watchId = undefined;
+  locating = "off";
+  drawMe(undefined);
+  paintLocate();
+}
+
+/** 追い始める。`pan` は押して始めたとき (最初に取れた所へ寄せ、取れないわけを出す) */
+function startLocating(pan: boolean): void {
+  asked = pan;
+  if (!("geolocation" in navigator)) {
+    if (pan) toast("このブラウザは位置を取れません");
+    return;
+  }
+  locating = "waiting";
+  panned = !pan;
+  paintLocate();
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      if (locating === "waiting" && asked) $("toast").hidden = true;
+      locating = "on";
+      paintLocate();
+      const me = {
+        lon: pos.coords.longitude,
+        lat: pos.coords.latitude,
+        accuracy: pos.coords.accuracy,
+      };
+      drawMe(me);
+      if (!panned) {
+        panned = true;
+        const pad = viewPadding();
+        // 下のタブと dock で隠れていない所の真ん中へ。動きは付けない
+        map.easeTo({
+          center: [me.lon, me.lat],
+          zoom: Math.max(map.getZoom(), LOCATE_ZOOM),
+          offset: [(pad.left - pad.right) / 2, (pad.top - pad.bottom) / 2],
+          duration: 0,
+        });
+      }
+    },
+    (err) => {
+      // 許可されなかったときは追うのをやめる。一時的に取れないだけなら追い続ける
+      if (err.code === err.PERMISSION_DENIED) {
+        stopLocating();
+        if (asked) {
+          toast(
+            "位置の利用が許可されていません。ブラウザのサイトの設定で許可すると使えます",
+          );
+        }
+      } else if (locating === "waiting" && asked) {
+        toast("位置を取れませんでした。しばらくすると、取れたら出します");
+      }
+    },
+    { enableHighAccuracy: true, maximumAge: 30_000, timeout: 30_000 },
+  );
+}
+
+function toggleLocate(): void {
+  if (asked) $("toast").hidden = true;
+  if (locating !== "off") {
+    stopLocating();
+    rememberLocate(false);
+    return;
+  }
+  // 押したこの操作の中で始める (許可の窓はこのとき出る)
+  rememberLocate(true);
+  startLocating(true);
+}
+
+/** 開いたとき。オフを覚えておらず、許可を拒まれていなければ始める (寄せない)。許可が変わったらそれに合わせる */
+async function autoStartLocating(): Promise<void> {
+  let on = true;
+  try {
+    on = readLocate(localStorage.getItem(LOCATE_KEY));
+  } catch {
+    // 読めない端末はオン (既定)
+  }
+  let status: PermissionStatus | undefined;
+  let permission: GeoPermission = "unknown";
+  try {
+    status = await navigator.permissions.query({ name: "geolocation" });
+    permission = status.state;
+  } catch {
+    // query が無いブラウザでは始めてみる (許可の窓はブラウザに任せる)
+  }
+  if (autoLocate(on, permission) && locating === "off") startLocating(false);
+  if (status) {
+    const s = status;
+    // サイトの設定で拒んだら追うのをやめる (許可したときは、押せば始まる)
+    s.onchange = () => {
+      if (s.state === "denied" && locating !== "off") stopLocating();
+    };
+  }
+}
+
 /** 地名・住所の検索で選んだ所へ寄せるときのズーム (これより寄せているときはそのまま) */
 const PLACE_ZOOM = 15;
 
-// 地名・住所の検索 (地図の上の欄)。選んだ所へ寄せて、白い縁の橙の丸を置く。欄を空にすると印も消える
+// 検索の欄の場所の候補。選んだ所へ寄せて、白い縁の橙の丸を置く。欄を空にすると印も消える
 setupPlaceSearch({
   pick: (place) => {
     (map.getSource("place") as GeoJSONSource | undefined)?.setData({
@@ -583,11 +757,23 @@ function setView(view: "map" | "list"): void {
   }
 }
 
-/** 地名・住所の検索の欄は、広い形ではヘッダー、スマホの形では一覧の先頭に置く */
-function placeSearchSlot(): void {
-  const box = document.querySelector(".place-search");
-  const slot = $(PHONE.matches ? "place-slot-phone" : "place-slot-wide");
-  if (box && box.parentElement !== slot) slot.append(box);
+/**
+ * 形で置き場所が変わるもの。検索の欄は広い形ではヘッダーの真ん中、スマホの形では一覧の先頭。
+ * ほかのサイトへのリンクは広い形ではヘッダーの右、スマホの形では一覧のいちばん下 (出典の下)
+ */
+function placeByForm(): void {
+  const phone = PHONE.matches;
+  const moves: [Element | null, string][] = [
+    [
+      document.querySelector(".place-search"),
+      phone ? "search-slot-phone" : "search-slot-wide",
+    ],
+    [$("elsewhere"), phone ? "elsewhere-slot-phone" : "elsewhere-slot-wide"],
+  ];
+  for (const [el, slotId] of moves) {
+    const slot = $(slotId);
+    if (el && el.parentElement !== slot) slot.append(el);
+  }
 }
 
 /** 一覧から選んだ物件。詳しい内容を開き、地図をそこへ寄せる */
@@ -747,7 +933,10 @@ function buildControls() {
   buildPrefOptions();
   $<HTMLSelectElement>("sort").value = state.sort;
   $<HTMLInputElement>("in-view").checked = state.inView;
-  $<HTMLInputElement>("search").value = state.q;
+  // 読み込む前に打った字は消さない (URL に語が無ければ、打った字で絞る)
+  const search = $<HTMLInputElement>("search");
+  if (state.q) search.value = state.q;
+  else state.q = search.value.toLowerCase();
 
   // 取得元はデータ次第で変わるので、フッタも map.json から組み立てる
   $("sources-credit").innerHTML = data.sources
@@ -830,6 +1019,7 @@ function wireEvents() {
     update();
   });
 
+  // 検索の欄で一覧を絞る (同じ欄の場所の候補は src/place-search.ts)
   let searchTimer: ReturnType<typeof setTimeout>;
   $<HTMLInputElement>("search").addEventListener("input", (event) => {
     const value = (event.target as HTMLInputElement).value.toLowerCase();
@@ -855,8 +1045,8 @@ function wireEvents() {
 
 /** 画面の形の操作 (下のタブ・dock・詳しい内容の上の 1 行)。物件データを読む前から効かせる */
 function wireShell() {
-  placeSearchSlot();
-  PHONE.addEventListener("change", placeSearchSlot);
+  placeByForm();
+  PHONE.addEventListener("change", placeByForm);
 
   $("tab-map").addEventListener("click", () => setView("map"));
   $("tab-list").addEventListener("click", () => setView("list"));
@@ -905,4 +1095,7 @@ async function boot() {
 }
 
 wireShell();
+// 現在地の層は地図の style を読んでから描けるので、読んでから始める
+if (map.loaded()) void autoStartLocating();
+else map.once("load", () => void autoStartLocating());
 void boot();
