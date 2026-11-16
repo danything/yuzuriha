@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- 見た目は danything/sonae にそろえる (assets/styles.css の頭のコメント) -->
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
@@ -11,9 +12,35 @@
       name="description"
       content="譲葉は、各サイトに掲載された0円物件を衛星写真の地図上に表示します。地方・都道府県・種別・特記事項で絞り込めます。"
     />
+    <meta name="theme-color" content="#ffffff" />
+    <script>
+      // 描く前に、テーマ (端末に合わせる) とスマホの形の印を付ける (sonae の app.html と同じ)。
+      // スクリプトが動かなければ明るいテーマの広い形
+      (() => {
+        const root = document.documentElement;
+        // スマホの形 (ヘッダーと列を出さず、下のタブ)。src/main.ts の PHONE と同じ条件
+        const phone = matchMedia("(max-width: 999.98px)");
+        const markPhone = () =>
+          root.toggleAttribute("data-phone", phone.matches);
+        markPhone();
+        phone.addEventListener("change", markPhone);
+        const scheme = matchMedia("(prefers-color-scheme: dark)");
+        const paint = () => {
+          const dark = scheme.matches;
+          root.dataset.theme = dark ? "dark" : "light";
+          // 地の色 (assets/styles.css の --so-bg)
+          document
+            .querySelector('meta[name="theme-color"]')
+            ?.setAttribute("content", dark ? "#0b0c0f" : "#ffffff");
+        };
+        paint();
+        scheme.addEventListener("change", paint);
+      })();
+    </script>
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
     <link rel="stylesheet" href="./assets/maplibre-gl.css" />
+    <link rel="stylesheet" href="./assets/blades.css" />
     <link rel="stylesheet" href="./assets/styles.css" />
     <link rel="modulepreload" href="./assets/maplibre-gl.mjs" />
     <script type="importmap">
@@ -21,207 +48,294 @@
     </script>
   </head>
   <body>
-    <div id="map"></div>
-
-    <!-- 地名・住所の検索 (src/place-search.ts)。物件の絞り込みの検索とは別で、地図を寄せるだけ -->
-    <div class="place-search" role="search">
-      <input
-        id="place-q"
-        type="search"
-        role="combobox"
-        aria-label="地名・住所で地図を移動"
-        aria-autocomplete="list"
-        aria-expanded="false"
-        aria-controls="place-list"
-        placeholder="地名・住所へ移動"
-        autocomplete="off"
-        enterkeyhint="search"
-      />
-      <ul
-        id="place-list"
-        class="place-search__list"
-        role="listbox"
-        aria-label="場所の候補"
-        hidden
-      ></ul>
-      <p
-        id="place-status"
-        class="place-search__status"
-        role="status"
-        hidden
-      ></p>
-    </div>
-
-    <!--
-      地図の出典。国土地理院の決まり (表示されている間は常に見えるように明示) に沿い、地図の隅にいつも出す。
-      押すと全文が開く。文は README の「地図」に合わせる
-    -->
-    <details class="map-credit">
-      <summary>出典: 国土地理院 ほか</summary>
-      <div class="map-credit__body">
-        <p>
-          地図: 出典：国土地理院（<a
-            href="https://maps.gsi.go.jp/development/ichiran.html"
-            target="_blank"
-            rel="noopener"
-            >地理院タイル</a
-          >・<a
-            href="https://github.com/gsi-cyberjapan/optimal_bvmap"
-            target="_blank"
-            rel="noopener"
-            >国土地理院最適化ベクトルタイル</a
-          >）。地理院タイルに物件の位置を追記して掲載。国土地理院最適化ベクトルタイルを加工して作成
-        </p>
-        <p>
-          写真:
-          地理院タイル「写真」(シームレス空中写真。国土地理院)・Landsat8画像（GSI,
-          TSIC, GEO Grid/AIST）・Landsat8画像（courtesy of the U.S. Geological
-          Survey）・海底地形（GEBCO）・世界衛星モザイク画像（NASA LP DAAC,
-          USGS/EROS Center）・GRUS画像（© Axelspace）
-        </p>
-        <p>
-          地名・住所の検索: 国土地理院の「<a
-            href="https://maps.gsi.go.jp/"
-            target="_blank"
-            rel="noopener"
-            >地理院地図</a
-          >」の住所検索 (住所は「<a
-            href="https://geocode.csis.u-tokyo.ac.jp/"
-            target="_blank"
-            rel="noopener"
-            >CSISシンプルジオコーディング実験</a
-          >（街区レベル位置参照情報）」による)
-          に、ブラウザから直接問い合わせます。送るのは打った文字だけで、譲葉のサーバーには送らず、残しません
-        </p>
-        <p>
-          描画:
-          <a href="https://maplibre.org/" target="_blank" rel="noopener"
-            >MapLibre GL JS</a
-          >
-        </p>
-      </div>
-    </details>
-
-    <button
-      id="panel-toggle"
-      class="panel-toggle"
-      type="button"
-      aria-controls="panel"
-    >
-      <span aria-hidden="true">☰</span> 絞り込み
-    </button>
-
-    <aside id="panel" class="panel" aria-label="絞り込みと一覧">
-      <header class="panel__header">
-        <div>
-          <h1 class="panel__title">譲葉</h1>
-          <p class="panel__meta" id="meta">読み込み中…</p>
+    <div class="shell" id="shell" data-view="map">
+      <!-- 広い形のヘッダー (スマホの形では出さない) -->
+      <header class="navbar">
+        <h1 class="logo">
+          <img src="./assets/favicon.svg" alt="" width="24" height="24" />
+          <span>譲葉</span>
+        </h1>
+        <!-- 地名・住所の検索はここ (広い形) か一覧の先頭 (スマホの形) に src/main.ts が置く -->
+        <div class="header-search" id="place-slot-wide">
+          <!-- 地名・住所の検索 (src/place-search.ts)。物件の絞り込みの検索とは別で、地図を寄せるだけ -->
+          <div class="place-search" role="search">
+            <label class="search-field">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="7"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+                <path
+                  d="m20 20-3.5-3.5"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <input
+                id="place-q"
+                type="search"
+                role="combobox"
+                aria-label="地名・住所で地図を移動"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="place-list"
+                placeholder="地名・住所へ移動"
+                autocomplete="off"
+                enterkeyhint="search"
+              />
+            </label>
+            <ul
+              id="place-list"
+              class="place-search__list"
+              role="listbox"
+              aria-label="場所の候補"
+              hidden
+            ></ul>
+            <p
+              id="place-status"
+              class="place-search__status"
+              role="status"
+              hidden
+            ></p>
+          </div>
         </div>
-        <button
-          id="panel-close"
-          class="panel__close"
-          type="button"
-          aria-label="パネルを閉じる"
-        >
-          ×
-        </button>
       </header>
 
-      <div class="panel__body" id="panel-body">
-        <section class="field">
-          <label class="field__label" for="search">物件名・住所で検索</label>
-          <input
-            id="search"
-            type="search"
-            placeholder="例: 高山市 別荘"
-            autocomplete="off"
-          />
+      <main class="stage">
+        <!-- 右の列 (広い形) か、地図の上に重ねる面 (スマホの形の「一覧」のタブ) -->
+        <section class="list-pane" id="panel-body" aria-label="絞り込みと一覧">
+          <div class="phone-search" id="place-slot-phone"></div>
+
+          <div class="browse stack" id="browse">
+            <p class="meta tiny muted" id="meta">読み込み中…</p>
+
+            <div class="field">
+              <label class="field__label" for="search"
+                >物件名・住所で検索</label
+              >
+              <input
+                id="search"
+                class="field__input"
+                type="search"
+                placeholder="例: 高山市 別荘"
+                autocomplete="off"
+              />
+            </div>
+
+            <section class="field">
+              <h2 class="field__label">ステータス</h2>
+              <div
+                class="chips"
+                id="statuses"
+                role="group"
+                aria-label="ステータス"
+              ></div>
+            </section>
+
+            <section class="field">
+              <h2 class="field__label">取得元</h2>
+              <div
+                class="chips"
+                id="sources"
+                role="group"
+                aria-label="取得元"
+              ></div>
+            </section>
+
+            <section class="field">
+              <h2 class="field__label">種別</h2>
+              <div
+                class="chips"
+                id="types"
+                role="group"
+                aria-label="種別"
+              ></div>
+            </section>
+
+            <div class="field field--row">
+              <label class="field__inline">
+                <span class="field__label">地方</span>
+                <select id="region"></select>
+              </label>
+              <label class="field__inline">
+                <span class="field__label">都道府県</span>
+                <select id="pref"></select>
+              </label>
+            </div>
+
+            <section class="field">
+              <h2 class="field__label">特記事項</h2>
+              <div
+                class="chips chips--scroll"
+                id="notes"
+                role="group"
+                aria-label="特記事項"
+              ></div>
+            </section>
+
+            <div class="field">
+              <label class="field__inline">
+                <span class="field__label">並び順</span>
+                <select id="sort">
+                  <option value="new">新着順</option>
+                  <option value="views">閲覧数が多い順</option>
+                  <option value="favorites">お気に入りが多い順</option>
+                </select>
+              </label>
+              <label class="check">
+                <input type="checkbox" role="switch" id="in-view" />
+                <span>地図に写っている物件だけ一覧に出す</span>
+              </label>
+            </div>
+
+            <section class="field">
+              <h2 class="field__label">
+                一覧 <span class="count num" id="count"></span>
+              </h2>
+              <ol class="item-list list" id="list"></ol>
+            </section>
+          </div>
+
+          <!-- 選んだ物件の詳しい内容 (一覧の列が替わる)。src/main.ts が描く -->
+          <div class="detail" id="detail" hidden>
+            <div class="detail-bar">
+              <button type="button" class="ghost small" id="detail-back">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m15 18-6-6 6-6"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                一覧
+              </button>
+              <button type="button" class="ghost small to-map" id="detail-map">
+                地図で見る
+              </button>
+            </div>
+            <div id="detail-body"></div>
+          </div>
+
+          <footer class="foot tiny muted">
+            <p>物件データ: <span id="sources-credit"></span></p>
+            <p>掲載内容は各サイトで確認してください</p>
+          </footer>
         </section>
 
-        <section class="field">
-          <h2 class="field__label">
-            ステータス
-            <button type="button" class="link-btn" id="status-reset">
-              すべて
-            </button>
-          </h2>
-          <div class="chips" id="statuses"></div>
-        </section>
+        <div class="map-pane">
+          <div id="map"></div>
 
-        <section class="field">
-          <h2 class="field__label">
-            取得元
-            <button type="button" class="link-btn" id="source-reset">
-              すべて
-            </button>
-          </h2>
-          <div class="chips" id="sources"></div>
-        </section>
+          <!--
+            地図の出典。国土地理院の決まり (表示されている間は常に見えるように明示) に沿い、地図の隅にいつも出す。
+            押すと全文が開く。文は README の「地図」に合わせる
+          -->
+          <details class="map-credit">
+            <summary>出典: 国土地理院 ほか</summary>
+            <div class="map-credit__body">
+              <p>
+                地図: 出典：国土地理院（<a
+                  href="https://maps.gsi.go.jp/development/ichiran.html"
+                  target="_blank"
+                  rel="noopener"
+                  >地理院タイル</a
+                >・<a
+                  href="https://github.com/gsi-cyberjapan/optimal_bvmap"
+                  target="_blank"
+                  rel="noopener"
+                  >国土地理院最適化ベクトルタイル</a
+                >）。地理院タイルに物件の位置を追記して掲載。国土地理院最適化ベクトルタイルを加工して作成
+              </p>
+              <p>
+                写真:
+                地理院タイル「写真」(シームレス空中写真。国土地理院)・Landsat8画像（GSI,
+                TSIC, GEO Grid/AIST）・Landsat8画像（courtesy of the U.S.
+                Geological
+                Survey）・海底地形（GEBCO）・世界衛星モザイク画像（NASA LP DAAC,
+                USGS/EROS Center）・GRUS画像（© Axelspace）
+              </p>
+              <p>
+                地名・住所の検索: 国土地理院の「<a
+                  href="https://maps.gsi.go.jp/"
+                  target="_blank"
+                  rel="noopener"
+                  >地理院地図</a
+                >」の住所検索 (住所は「<a
+                  href="https://geocode.csis.u-tokyo.ac.jp/"
+                  target="_blank"
+                  rel="noopener"
+                  >CSISシンプルジオコーディング実験</a
+                >（街区レベル位置参照情報）」による)
+                に、ブラウザから直接問い合わせます。送るのは打った文字だけで、譲葉のサーバーには送らず、残しません
+              </p>
+              <p>
+                描画:
+                <a href="https://maplibre.org/" target="_blank" rel="noopener"
+                  >MapLibre GL JS</a
+                >
+              </p>
+            </div>
+          </details>
 
-        <section class="field">
-          <h2 class="field__label">
-            種別
-            <button type="button" class="link-btn" id="type-reset">
-              すべて
-            </button>
-          </h2>
-          <div class="chips" id="types"></div>
-        </section>
+          <div id="toast" class="toast" role="status" hidden></div>
+        </div>
+      </main>
 
-        <section class="field field--row">
-          <label class="field__inline">
-            <span class="field__label">地方</span>
-            <select id="region"></select>
-          </label>
-          <label class="field__inline">
-            <span class="field__label">都道府県</span>
-            <select id="pref"></select>
-          </label>
-        </section>
-
-        <section class="field">
-          <h2 class="field__label">
-            特記事項
-            <button type="button" class="link-btn" id="note-reset">
-              すべて
-            </button>
-          </h2>
-          <div class="chips chips--scroll" id="notes"></div>
-        </section>
-
-        <section class="field field--row">
-          <label class="field__inline">
-            <span class="field__label">並び順</span>
-            <select id="sort">
-              <option value="new">新着順</option>
-              <option value="views">閲覧数が多い順</option>
-              <option value="favorites">お気に入りが多い順</option>
-            </select>
-          </label>
-          <label class="field__inline field__inline--check">
-            <span class="field__label">表示範囲</span>
-            <label class="check">
-              <input type="checkbox" id="in-view" />
-              <span>地図に写っている物件だけ一覧に出す</span>
-            </label>
-          </label>
-        </section>
-
-        <section class="field field--grow">
-          <h2 class="field__label">
-            一覧 <span class="count" id="count"></span>
-          </h2>
-          <ol class="list" id="list"></ol>
-        </section>
+      <!-- スマホの形: 地図のタブで、選んだ物件の 1 行 (押すと一覧のタブの詳しい内容) -->
+      <div class="dock" aria-label="選んでいる物件">
+        <button type="button" class="dock-pick" id="dock-pick" hidden>
+          <span class="truncate" id="dock-name"></span>
+        </button>
+        <span class="dock-hint small muted" id="dock-hint"
+          >一覧か地図の印から選ぶと、ここに出ます</span
+        >
       </div>
 
-      <footer class="panel__footer">
-        物件データ: <span id="sources-credit"></span>
-        <br />掲載内容は各サイトで確認してください
-      </footer>
-    </aside>
-
-    <div id="toast" class="toast" role="status" hidden></div>
+      <!-- スマホの形の下のタブ -->
+      <nav class="tabbar" aria-label="画面の切り替え">
+        <button type="button" class="tab" id="tab-map" aria-current="page">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path
+              d="M14.1 5.9 9.9 4 3.6 6.8a1 1 0 0 0-.6.9v11.8a.5.5 0 0 0 .7.5L9.9 17l4.2 2 6.3-2.8a1 1 0 0 0 .6-.9V3.5a.5.5 0 0 0-.7-.5ZM9.9 4v13M14.1 5.9V19"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span>地図</span>
+        </button>
+        <button type="button" class="tab" id="tab-list">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path
+              d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span>一覧</span>
+        </button>
+      </nav>
+    </div>
 
     <script type="module" src="./assets/main.js"></script>
   </body>

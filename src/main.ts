@@ -13,6 +13,7 @@ import {
   type LayerSpecification,
   LngLatBounds,
   Map as MapLibreMap,
+  Marker,
   NavigationControl,
   Popup,
   ScaleControl,
@@ -164,7 +165,7 @@ map.once("load", () => {
     });
 });
 
-// bottom-left はパネルの真下になり、半透明のパネル越しに透けて見えてしまう。
+// 地図の上の操作は sonae と同じく右下にまとめる (隅の出典のすぐ上。スマホの形は下のタブと dock のすぐ上)。
 // bottom-right は後から足したものが上に積まれるので、縮尺 → ズームの順
 map.addControl(new ScaleControl({ unit: "metric" }), "bottom-right");
 map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
@@ -185,10 +186,10 @@ setupPlaceSearch({
         },
       ],
     });
-    // 画面が狭いときはパネルが地図の下半分を覆うので閉じる
-    if (isNarrow()) setPanel(true);
+    // スマホの形では欄は一覧のタブにあるので、地図のタブへ移る
+    setView("map");
     const pad = viewPadding();
-    // パネルで隠れていない所の真ん中へ。動きは付けない
+    // 下のタブと dock で隠れていない所の真ん中へ。動きは付けない
     map.easeTo({
       center: place.at,
       zoom: Math.max(map.getZoom(), PLACE_ZOOM),
@@ -233,8 +234,14 @@ let state: State = {
   inView: false,
 };
 const byId = new Map<string, MapProperty>();
+/** 同じ所に重なった物件を選ぶ吹き出し */
 let popup: Popup | null = null;
+/** 詳しい内容に出している物件 */
 let shownId: string | null = null;
+/** 選んだ物件の地図の上の印 */
+let pickMark: Marker | null = null;
+/** 詳しい内容を開く前の一覧の巻き取りの位置 (「一覧」で戻すため) */
+let listScroll = 0;
 
 /** skip に渡した項目だけ無視して判定する (チップの件数表示に使う) */
 function matches(property: MapProperty, skip?: ChipKey): boolean {
@@ -270,13 +277,14 @@ function filtered() {
 
 /* ---------- 描画 ---------- */
 
-function popupHtml(property: MapProperty): string {
+/** 詳しい内容 (一覧の列が替わる)。状態 (ステータス) だけをタグにし、事実 (種別・取得元・特記事項) は控えた字で並べる */
+function detailHtml(property: MapProperty): string {
   const photo = property.image
     ? `<img class="pop__photo" src="${escapeHtml(property.image)}" alt="" decoding="async">`
     : "";
-  const notes = property.notes
-    .map((note) => `<span class="pop__tag">${escapeHtml(note)}</span>`)
-    .join("");
+  const facts = [property.type, sourceLabel(property.source), ...property.notes]
+    .map(escapeHtml)
+    .join("・");
   const rows = [
     ["所在地", `${property.prefecture}${property.city} ${property.address}`],
     // 0円が前提なので、値が付いているものだけ出す
@@ -304,39 +312,69 @@ function popupHtml(property: MapProperty): string {
     .join("");
 
   return `
-		<div class="pop" style="--pin:${statusColor(property.status)}">
+		<article class="pop" style="--pin:${statusColor(property.status)}">
 			${photo}
 			<div class="pop__inner">
-				<h3 class="pop__name">${escapeHtml(property.title)}</h3>
-				<div class="pop__tags">
-					<span class="pop__badge">${escapeHtml(property.status)}</span>
-					<span class="pop__tag">${escapeHtml(property.type)}</span>
-					<span class="pop__tag pop__tag--source">${escapeHtml(sourceLabel(property.source))}</span>
-					${notes}
-				</div>
+				<h2 class="pop__name">${escapeHtml(property.title)}</h2>
+				<p class="pop__tags">
+					<span class="tag"><span class="dot"></span>${escapeHtml(property.status)}</span>
+					<span class="muted">${facts}</span>
+				</p>
 				<dl class="pop__rows">${rows}</dl>
 				<div class="pop__links">
-					<a class="pop__link pop__link--primary" href="${escapeHtml(property.url)}" target="_blank" rel="noopener">詳細ページ</a>
-					<a class="pop__link" href="https://www.google.com/maps/dir/?api=1&destination=${property.lat},${property.lng}" target="_blank" rel="noopener">経路</a>
+					<a class="button" href="${escapeHtml(property.url)}" target="_blank" rel="noopener">詳細ページ</a>
+					<a class="button secondary" href="https://www.google.com/maps/dir/?api=1&destination=${property.lat},${property.lng}" target="_blank" rel="noopener">経路</a>
 				</div>
 			</div>
-		</div>`;
+		</article>`;
 }
 
-function openPopup(property: MapProperty): void {
+/**
+ * 物件を選ぶ。一覧の列が詳しい内容に替わり、地図にその物件の印 (主の色の輪) を置く。
+ * スマホの形では、地図のタブなら dock にその物件の 1 行を出す (押すと一覧のタブの詳しい内容)
+ */
+function openDetail(property: MapProperty): void {
   popup?.remove();
+  const pane = $("panel-body");
+  if (shownId === null) listScroll = pane.scrollTop;
   shownId = property.id;
-  popup = new Popup({
-    maxWidth: "280px",
-    offset: 14,
-    className: "pop-wrap",
-  })
-    .setLngLat([property.lng, property.lat])
-    .setHTML(popupHtml(property))
-    .addTo(map);
-  popup.on("close", () => {
-    shownId = null;
+  $("detail-body").innerHTML = detailHtml(property);
+  $("browse").hidden = true;
+  $("detail").hidden = false;
+  pane.scrollTop = 0;
+  markCurrentRow();
+
+  pickMark ??= new Marker({
+    element: Object.assign(document.createElement("div"), {
+      className: "pick-mark",
+    }),
   });
+  pickMark.setLngLat([property.lng, property.lat]).addTo(map);
+
+  $("dock-name").textContent = property.title;
+  $("dock-pick").hidden = false;
+  $("dock-hint").hidden = true;
+}
+
+/** 詳しい内容を閉じて一覧へ戻す (巻き取りの位置も戻す) */
+function closeDetail(): void {
+  if (shownId === null) return;
+  shownId = null;
+  $("detail").hidden = true;
+  $("detail-body").innerHTML = "";
+  $("browse").hidden = false;
+  $("panel-body").scrollTop = listScroll;
+  markCurrentRow();
+  pickMark?.remove();
+  $("dock-pick").hidden = true;
+  $("dock-hint").hidden = false;
+}
+
+/** 開いている物件の行に印 (左の縦線と太字) を付ける */
+function markCurrentRow(): void {
+  for (const item of $("list").querySelectorAll<HTMLElement>(".list__item")) {
+    item.setAttribute("aria-current", String(item.dataset.id === shownId));
+  }
 }
 
 /** 住所からの推定などで同じ座標に重なった物件は、ズームでは分離できない。選ばせる */
@@ -347,7 +385,7 @@ function pickerHtml(properties: MapProperty[]): string {
 			<li>
 				<button type="button" class="pop-pick__item" data-pick-id="${escapeHtml(property.id)}">
 					<span class="pop-pick__name">${escapeHtml(property.title)}</span>
-					<span class="pop-pick__meta">${escapeHtml(property.status)} ・ ${escapeHtml(sourceLabel(property.source))}</span>
+					<span class="pop-pick__meta">${escapeHtml(property.status)}・${escapeHtml(sourceLabel(property.source))}</span>
 				</button>
 			</li>`,
     )
@@ -361,10 +399,10 @@ function pickerHtml(properties: MapProperty[]): string {
 
 function openPicker(properties: MapProperty[], lngLat: [number, number]): void {
   popup?.remove();
-  shownId = null;
   popup = new Popup({
     maxWidth: "280px",
     offset: 14,
+    closeButton: false,
     className: "pop-wrap",
   })
     .setLngLat(lngLat)
@@ -376,7 +414,7 @@ function openPicker(properties: MapProperty[], lngLat: [number, number]): void {
     .forEach((button) => {
       button.addEventListener("click", () => {
         const property = byId.get(button.dataset.pickId ?? "");
-        if (property) openPopup(property);
+        if (property) openDetail(property);
       });
     });
 }
@@ -399,7 +437,7 @@ function renderList(entries: MapProperty[]): void {
   $("count").textContent = `${visible.length.toLocaleString()} 件`;
 
   if (visible.length === 0) {
-    list.innerHTML = `<li class="list__empty">条件に合う物件がありません</li>`;
+    list.innerHTML = `<li class="empty-state"><p class="bold">当てはまるものはありません</p></li>`;
     return;
   }
 
@@ -411,22 +449,22 @@ function renderList(entries: MapProperty[]): void {
 	</svg>`;
   const thumb = (property: MapProperty) =>
     property.image
-      ? `<img class="list__thumb" data-src="${escapeHtml(property.image)}" alt="" width="52" height="40" decoding="async">`
+      ? `<img class="list__thumb" data-src="${escapeHtml(property.image)}" alt="" width="56" height="42" decoding="async">`
       : `<span class="list__thumb" aria-hidden="true">${NO_PHOTO}</span>`;
 
+  // 行は件の面に乗った 2 段。1 段目に物件名、2 段目に状態 (ステータスのタグ) と控えた字の補足
   list.innerHTML =
     visible
       .slice(0, LIST_LIMIT)
       .map(
         (property) => `
-			<li class="list__item" data-id="${property.id}" style="--pin:${statusColor(property.status)}">
+			<li class="list__item item" data-id="${property.id}" aria-current="${property.id === shownId}" style="--pin:${statusColor(property.status)}">
 				${thumb(property)}
 				<span class="list__body">
 					<span class="list__name">${escapeHtml(property.title)}</span>
 					<span class="list__meta">
-						<span class="list__status">${escapeHtml(property.status)}</span>
-						<span>${escapeHtml(property.prefecture)}${escapeHtml(property.city)}</span>
-						<span>${escapeHtml(sourceLabel(property.source))}</span>
+						<span class="tag"><span class="dot"></span>${escapeHtml(property.status)}</span>
+						<span>${escapeHtml(property.prefecture)}${escapeHtml(property.city)}・${escapeHtml(sourceLabel(property.source))}</span>
 					</span>
 				</span>
 			</li>`,
@@ -460,20 +498,30 @@ function observeThumbs(list: HTMLElement): void {
   }
 }
 
+/** チップの件数と、「すべて」(その項目で絞っていない) のチップの押されている印 */
 function renderChipCounts() {
   for (const group of CHIP_GROUPS) {
     const counts = new Map<string, number>();
+    let all = 0;
     for (const property of data.properties) {
       if (!matches(property, group.key)) continue;
+      all++;
       for (const value of group.valuesOf(property)) {
         counts.set(value, (counts.get(value) ?? 0) + 1);
       }
     }
     for (const chip of $(group.box).querySelectorAll<HTMLElement>(".chip")) {
-      const count = counts.get(chip.dataset.value ?? "") ?? 0;
-      const countEl = chip.querySelector(".chip__count");
+      const count =
+        chip.id === group.reset
+          ? all
+          : (counts.get(chip.dataset.value ?? "") ?? 0);
+      const countEl = chip.querySelector(".num");
       if (countEl) countEl.textContent = count.toLocaleString();
     }
+    $(group.reset).setAttribute(
+      "aria-pressed",
+      String(state[group.key].size === 0),
+    );
   }
 }
 
@@ -483,29 +531,37 @@ function render() {
     type: "FeatureCollection",
     features: entries.map(toFeature),
   });
-  // 絞り込みで消えた物件のポップアップは閉じる
+  // 絞り込みで消えた物件の詳しい内容は閉じる
   if (shownId !== null && !entries.some((p) => p.id === shownId)) {
-    popup?.remove();
+    closeDetail();
   }
   renderList(entries);
   renderChipCounts();
 }
 
-/** パネルに隠れる分を余白として扱い、実際に見えている範囲に収める */
+/** スマホの形の印 (`<html data-phone>`)。条件は index.html の頭のスクリプトと同じ */
+const PHONE = window.matchMedia("(max-width: 999.98px)");
+
+/**
+ * 地図のうち、実際に見えている範囲の余白。広い形は一覧の列が地図の横にあるので隠れない。
+ * スマホの形は下のタブと dock が地図の下に浮いている
+ */
 function viewPadding() {
   const margin = 20;
-  if (document.body.classList.contains("panel-hidden")) {
+  if (!PHONE.matches) {
     return { top: margin, bottom: margin, left: margin, right: margin };
   }
-  const rect = $("panel").getBoundingClientRect();
-  return isNarrow()
-    ? { top: margin, bottom: rect.height + margin, left: margin, right: margin }
-    : {
-        top: margin,
-        bottom: margin,
-        left: rect.width + margin * 2,
-        right: margin,
-      };
+  // dock は一覧のタブでは出していないので、下のタブの上端から dock の高さと隙間 (3rem) を足して数える
+  const mapBox = map.getContainer().getBoundingClientRect();
+  const tabbar = $("tab-map").parentElement?.getBoundingClientRect();
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  const hidden = tabbar ? mapBox.bottom - tabbar.top + 3 * rem : 0;
+  return {
+    top: margin,
+    bottom: Math.max(hidden, 0) + margin,
+    left: margin,
+    right: margin,
+  };
 }
 
 function fitToSelection() {
@@ -516,31 +572,36 @@ function fitToSelection() {
   map.fitBounds(bounds, { padding: viewPadding(), maxZoom: 14, duration: 600 });
 }
 
-const isNarrow = (): boolean => window.matchMedia("(max-width: 640px)").matches;
-
-function setPanel(hidden: boolean): void {
-  document.body.classList.toggle("panel-hidden", hidden);
-  map.resize();
+/** スマホの形の下のタブ (地図・一覧)。広い形では両方いつも見えているので、印を付けるだけ */
+function setView(view: "map" | "list"): void {
+  $("shell").dataset.view = view;
+  for (const tab of ["map", "list"] as const) {
+    const el = $(`tab-${tab}`);
+    if (tab === view) el.setAttribute("aria-current", "page");
+    else el.removeAttribute("aria-current");
+  }
 }
 
+/** 地名・住所の検索の欄は、広い形ではヘッダー、スマホの形では一覧の先頭に置く */
+function placeSearchSlot(): void {
+  const box = document.querySelector(".place-search");
+  const slot = $(PHONE.matches ? "place-slot-phone" : "place-slot-wide");
+  if (box && box.parentElement !== slot) slot.append(box);
+}
+
+/** 一覧から選んだ物件。詳しい内容を開き、地図をそこへ寄せる */
 function focusProperty(id: string): void {
   const property = byId.get(id);
   if (!property) return;
-  // 画面が狭いときはパネルがポップアップを覆ってしまうので閉じる
-  if (isNarrow()) setPanel(true);
+  openDetail(property);
   const pad = viewPadding();
-  const visibleHeight = map.getCanvas().clientHeight - pad.top - pad.bottom;
   map.easeTo({
     center: [property.lng, property.lat],
     zoom: Math.max(map.getZoom(), 16),
-    // パネルで隠れていない領域の中央、から少し下へ。ポップアップが上に開いて収まる
-    offset: [
-      (pad.left - pad.right) / 2,
-      (pad.top - pad.bottom) / 2 + visibleHeight * 0.2,
-    ],
+    // 下のタブと dock で隠れていない領域の真ん中へ
+    offset: [(pad.left - pad.right) / 2, (pad.top - pad.bottom) / 2],
     duration: 700,
   });
-  openPopup(property);
 }
 
 /* ---------- 地図の操作 ---------- */
@@ -553,7 +614,7 @@ map.on("click", "points", (event) => {
   const properties = Array.from(ids, (id) => byId.get(id)).filter(
     (property): property is MapProperty => !!property,
   );
-  if (properties.length === 1) openPopup(properties[0]);
+  if (properties.length === 1) openDetail(properties[0]);
   else if (properties.length > 1)
     openPicker(properties, [properties[0].lng, properties[0].lat]);
 });
@@ -656,22 +717,23 @@ const uniqueSorted = (values: (string | null | undefined)[]): string[] =>
 
 function chipHtml(group: ChipGroup, value: string): string {
   const color = group.color?.(value);
-  const dot = color ? `<span class="chip__dot"></span>` : "";
+  const dot = color ? `<span class="dot"></span>` : "";
   const label = group.label?.(value) ?? value;
   return `<button type="button" class="chip" data-value="${escapeHtml(value)}" aria-pressed="${state[group.key].has(value)}"${
     color ? ` style="--chip:${color}"` : ""
-  }>${dot}${escapeHtml(label)}<span class="chip__count"></span></button>`;
+  }>${dot}${escapeHtml(label)}<span class="num"></span></button>`;
 }
 
 function buildControls() {
   const properties = data.properties;
 
+  // 並びの先頭は「すべて」(その項目で絞らない。件数は全部)。押されている印は renderChipCounts が付ける
   for (const group of CHIP_GROUPS) {
     const values =
       group.values?.() ?? uniqueSorted(properties.flatMap(group.valuesOf));
-    $(group.box).innerHTML = values
-      .map((value) => chipHtml(group, value))
-      .join("");
+    $(group.box).innerHTML =
+      `<button type="button" class="chip" id="${group.reset}" aria-pressed="false">すべて<span class="num"></span></button>` +
+      values.map((value) => chipHtml(group, value)).join("");
   }
 
   $<HTMLSelectElement>("region").innerHTML =
@@ -698,7 +760,7 @@ function buildControls() {
     ? `・座標なし ${data.unmapped} 件は非表示`
     : "";
   $("meta").innerHTML =
-    `${data.properties.length.toLocaleString()} 件を表示${unmapped}<br>更新 ${formatDate(
+    `${data.properties.length.toLocaleString()} 件を表示${unmapped}・更新 ${formatDate(
       data.generatedAt,
     )}`;
 }
@@ -788,9 +850,26 @@ function wireEvents() {
   map.on("moveend", () => {
     if (state.inView) renderList(filtered());
   });
+}
 
-  $("panel-close").addEventListener("click", () => setPanel(true));
-  $("panel-toggle").addEventListener("click", () => setPanel(false));
+/** 画面の形の操作 (下のタブ・dock・詳しい内容の上の 1 行)。物件データを読む前から効かせる */
+function wireShell() {
+  placeSearchSlot();
+  PHONE.addEventListener("change", placeSearchSlot);
+
+  $("tab-map").addEventListener("click", () => setView("map"));
+  $("tab-list").addEventListener("click", () => setView("list"));
+  // dock の物件の 1 行を押すと、一覧のタブの詳しい内容へ
+  $("dock-pick").addEventListener("click", () => setView("list"));
+  $("detail-back").addEventListener("click", closeDetail);
+  // 「地図で見る」(スマホの形)。物件が地図の見えている所に無ければ寄せる
+  $("detail-map").addEventListener("click", () => {
+    setView("map");
+    const property = shownId === null ? undefined : byId.get(shownId);
+    if (property && !map.getBounds().contains([property.lng, property.lat])) {
+      map.easeTo({ center: [property.lng, property.lat], duration: 0 });
+    }
+  });
 }
 
 function toast(message: string): void {
@@ -824,4 +903,5 @@ async function boot() {
   fitToSelection();
 }
 
+wireShell();
 void boot();
