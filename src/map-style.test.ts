@@ -3,8 +3,10 @@ import { describe, expect, test } from "bun:test";
 import anno from "../assets/gsi/anno.json";
 import {
   ANNO_BEFORE,
+  BLUE_MARBLE_TILES,
   buildStyle,
   GSI_VECTOR_URL,
+  PHOTO_MIN_ZOOM,
   roadLayers,
   TEXT_FONT,
 } from "./map-style.ts";
@@ -28,9 +30,37 @@ describe("buildStyle", () => {
     expect(style.sprite).toBe("https://y.example/assets/gsi/sprite/std");
   });
 
-  test("下地は 1 つだけで、隠した層も無い (選ぶ一覧を置かない)", () => {
+  test("引いたときは Blue Marble、ズーム 9 から地理院の写真。境で 1 段重ねる", () => {
+    expect(style.sources["blue-marble"]).toMatchObject({
+      type: "raster",
+      tiles: [BLUE_MARBLE_TILES],
+      maxzoom: 8,
+    });
+    // 写真の 8 以下 (世界衛星モザイク) は灰色の三角が焼き込まれているので読まない
+    expect(PHOTO_MIN_ZOOM).toBe(9);
+    expect(style.sources.photo).toMatchObject({ minzoom: PHOTO_MIN_ZOOM });
+    const bm = style.layers.find((l) => l.id === "blue-marble");
+    const photo = style.layers.find((l) => l.id === "photo");
+    // Blue Marble は写真の出始めより 1 段先まで残す (境で白く抜けない)
+    expect(bm?.maxzoom).toBeGreaterThan(PHOTO_MIN_ZOOM);
+    expect(photo?.minzoom).toBe(PHOTO_MIN_ZOOM);
+    // 写真は境から半段かけて重ねる (海の色の段差を和らげる)
+    expect(
+      (photo as { paint?: Record<string, unknown> }).paint?.["raster-opacity"],
+    ).toEqual([
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      PHOTO_MIN_ZOOM,
+      0,
+      PHOTO_MIN_ZOOM + 0.5,
+      1,
+    ]);
+  });
+
+  test("下地は引いたときの Blue Marble と写真の 2 つだけで、隠した層も無い (選ぶ一覧を置かない)", () => {
     const rasters = style.layers.filter((l) => l.type === "raster");
-    expect(rasters.map((l) => l.id)).toEqual(["photo"]);
+    expect(rasters.map((l) => l.id)).toEqual(["blue-marble", "photo"]);
     expect(
       style.layers.filter(
         (l) => (l.layout as { visibility?: string })?.visibility === "none",
@@ -53,8 +83,8 @@ describe("buildStyle", () => {
     ]);
   });
 
-  test("重ねる順は 写真 → 道路 → (注記) → 検索の印 → 物件", () => {
-    expect(ids[0]).toBe("photo");
+  test("重ねる順は Blue Marble → 写真 → 道路 → (注記) → 検索の印 → 物件", () => {
+    expect(ids.slice(0, 2)).toEqual(["blue-marble", "photo"]);
     const lastRoad = Math.max(
       ...ids.map((id, i) => (id.startsWith("road-") ? i : -1)),
     );
