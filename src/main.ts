@@ -551,7 +551,8 @@ function viewPadding() {
   if (!PHONE.matches) {
     return { top: margin, bottom: margin, left: margin, right: margin };
   }
-  // dock は一覧のタブでは出していないので、下のタブの上端から dock の高さと隙間 (3rem) を足して数える
+  // dock は一覧のタブでは出していないので、下のタブの上端から dock の高さと隙間を足して数える。
+  // assets/styles.css の `--dock-h` (2.75rem) と `--so-dock-gap` (0.375rem) を丸めた 3rem。あちらを変えたらここも合わせる
   const mapBox = map.getContainer().getBoundingClientRect();
   const tabbar = $("tab-map").parentElement?.getBoundingClientRect();
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);

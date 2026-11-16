@@ -788,6 +788,8 @@ option {
   flex-direction: column;
   gap: var(--so-space-3);
 }
+/* `.stack` と `.detail` は flex なので、隠すときを明示する (Blades の misc.css の [hidden] にも頼らない) */
+.browse[hidden],
 .detail[hidden] {
   display: none;
 }
