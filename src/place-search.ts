@@ -128,9 +128,13 @@ export function setupPlaceSearch(handlers: {
     } catch {
       if (controller.signal.aborted || pending !== controller) return;
       pending = undefined;
+      const askedNow = pendingAsked;
       show([], false);
-      say("住所を探せませんでした (国土地理院の住所検索)");
-      sync();
+      // 打つのが止まって探したときは黙る (物件の名前を打っているだけの人に、そのたびに出さない)
+      if (askedNow) {
+        say("住所を探せませんでした (国土地理院の住所検索)");
+        sync();
+      }
     }
   };
 

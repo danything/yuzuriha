@@ -234,9 +234,13 @@ function rememberLocate(on: boolean): void {
   }
 }
 
-function drawMe(
-  me: { lon: number; lat: number; accuracy: number } | undefined,
-): void {
+type Me = { lon: number; lat: number; accuracy: number };
+/** いま描いている位置。地図の style を読む前に取れたら、読んだあとで描く */
+let lastMe: Me | undefined;
+map.once("load", () => drawMe(lastMe));
+
+function drawMe(me: Me | undefined): void {
+  lastMe = me;
   (map.getSource("me") as GeoJSONSource | undefined)?.setData(
     me
       ? meFeatures(me.lon, me.lat, me.accuracy)
