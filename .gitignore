@@ -4,3 +4,4 @@ site/
 assets/main.js
 assets/maplibre-gl*
 compose.override.yml
+assets/blades.css

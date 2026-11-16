@@ -1,773 +1,1217 @@
+/*
+ * 見た目は danything/sonae にそろえる (sonae の src/app.css と src/routes/+page.svelte を写したもの。
+ * sonae は denpa の docs/design.md に従う)。土台は Blades の Pico (assets/blades.css。build-web.ts が
+ * node_modules から写す)。Blades は `blades` の層 (@layer) に入るので、層の外のこの規則が詳細度に関係なく勝つ。
+ *
+ * - トークンの名前は sonae の `--so-*`。値も sonae と同じ
+ * - 層は地・件の面・操作の層の 3 つ (denpa の design.md 2 章)。一覧の 1 件が件の面、浮いた操作が操作の層
+ * - テーマは端末に合わせる (index.html が <html data-theme> を付ける。スクリプトが動かなければ明るい)
+ * - スマホの形は `<html data-phone>` (1000px 未満。index.html が描く前に付ける)。ヘッダーと列を出さず、下のタブと dock に寄せる
+ * - 動きは CSS の透明度と transform だけ。動きを減らす設定では全部止める (ファイルの最後)
+ */
+
 :root {
-  --bg: #0f1418;
-  --panel: rgba(17, 23, 28, 0.92);
-  --panel-solid: #11171c;
-  --line: rgba(255, 255, 255, 0.12);
-  --text: #eef2f5;
-  --muted: #9aa7b1;
-  --accent: #34d399;
+  --pico-font-family-sans-serif:
+    "BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --pico-font-size: 16px;
+  /* 等幅 (sonae・denpa と同じ並び) */
+  --pico-font-family-monospace:
+    ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, monospace;
+  --pico-line-height: 1.6;
+  --pico-spacing: 1rem;
+  --pico-typography-spacing-vertical: 0.75rem;
+  --pico-form-element-spacing-vertical: 0.45rem;
+  --pico-form-element-spacing-horizontal: 0.75rem;
+  --so-fg: var(--pico-color);
+  /* 角丸。小・中 (入力欄・行)・大 (候補の箱)。ボタンはカプセル */
+  --so-radius-sm: 0.375rem;
+  --so-radius: 0.5rem;
+  --so-radius-lg: 0.75rem;
+  --so-radius-full: 999px;
+  --pico-border-radius: var(--so-radius);
+  --so-item-radius: calc(var(--so-radius) + 0.5rem);
+  /* 余白の 6 段 (4・8・12・16・24・32px) */
+  --so-space-1: 0.25rem;
+  --so-space-2: 0.5rem;
+  --so-space-3: 0.75rem;
+  --so-space-4: 1rem;
+  --so-space-5: 1.5rem;
+  --so-space-6: 2rem;
+  /* 重なりの段 */
+  --so-z-dock: 30; /* 下のタブのすぐ上に浮かせる操作の 1 行 */
+  --so-z-header: 40; /* 下のタブ */
+  --so-list-gap: 0.375rem;
+  --so-item-h: 4rem;
+  --so-mark: 2px;
+  --so-bar-pad: 0.375rem;
+  /* 下のタブとの隙間と、窓の端からの離れ */
+  --so-dock-gap: 0.375rem;
+  --so-dock-inset: 0.75rem;
+  /* 字の大きさの 6 段。`-2xs` は幅か高さの決まった所 (下のタブの名前) だけ */
+  --so-text-2xs: 0.6875rem;
+  --so-text-xs: 0.75rem;
+  --so-text-sm: 0.875rem;
+  --so-text-base: 1rem;
+  --so-text-lg: 1.125rem;
+  --so-text-xl: 1.5rem;
+  --so-weight: 400;
+  --so-weight-bold: 700;
+  /* 動き。時間は 4 つ、曲線は 3 つ */
+  --so-duration: 120ms;
+  --so-duration-enter: 240ms;
+  --so-duration-move: 300ms;
+  --so-duration-exit: 150ms;
+  --so-ease: cubic-bezier(0.2, 0, 0, 1);
+  --so-ease-spring: linear(
+    0,
+    0.06 4%,
+    0.24 9%,
+    0.5 15%,
+    0.74 22%,
+    0.9 30%,
+    1.02 40%,
+    1.04 48%,
+    1.02 60%,
+    1 75%,
+    1
+  );
+  --so-ease-exit: cubic-bezier(0.3, 0, 1, 1);
+  --pico-transition: var(--so-duration) var(--so-ease);
+}
+/* 指で押す端末の件は 72px */
+@media (pointer: coarse) {
+  :root {
+    --so-item-h: 4.5rem;
+  }
+}
+
+/* 明るいテーマ (data-theme が無いときも)。値は sonae と同じ */
+:root:not([data-theme="dark"]),
+[data-theme="light"] {
+  color-scheme: light;
+  --pico-background-color: #fff;
+  --so-bg: #fff;
+  --so-surface: #fff;
+  --so-subtle: #eff1f4;
+  --so-line: #dfe3eb;
+  --so-line-strong: #cfd5e2;
+  --so-pop: #fff;
+  --so-pop-hover: var(--so-subtle);
+  --so-muted: #555e70;
+  --so-primary-text: #02659a;
+  --so-field: rgb(0 37 92 / 0.11);
+  --so-item: #fff;
+  --so-item-hover: #f5f6f9;
+  --so-item-shadow:
+    0 1px 2px rgb(24 28 37 / 0.08), 0 2px 8px rgb(24 28 37 / 0.06);
+  --so-shadow-pop:
+    0 4px 12px rgb(24 28 37 / 0.08), 0 16px 32px -8px rgb(24 28 37 / 0.16);
+  --pico-form-element-background-color: #fff;
+  --pico-form-element-border-color: var(--so-line-strong);
+  --pico-muted-border-color: var(--so-line);
+  --pico-secondary: #3d475c;
+  --pico-secondary-hover: #2a3140;
+}
+/* 暗いテーマ。ほぼ黒で色みを抑えた段 (sonae と同じ) */
+[data-theme="dark"] {
   color-scheme: dark;
+  --pico-background-color: #0b0c0f;
+  --so-bg: #0b0c0f;
+  --so-surface: #121318;
+  --so-subtle: #1a1b20;
+  --so-line: #26282e;
+  --so-line-strong: #3a3d46;
+  --so-pop: #1f2026;
+  --so-pop-hover: #2c2e35;
+  --so-muted: #9aa3b5;
+  --so-primary-text: var(--pico-primary);
+  --so-field: rgb(211 220 255 / 0.13);
+  --so-item: #16171c;
+  --so-item-hover: #1d1e24;
+  --so-item-shadow: none;
+  --so-shadow-pop:
+    0 4px 12px rgb(0 0 0 / 0.3), 0 16px 40px -8px rgb(0 0 0 / 0.5);
+  --pico-form-element-background-color: var(--so-bg);
+  --pico-form-element-active-background-color: var(--so-surface);
+  --pico-form-element-selected-background-color: var(--so-line);
+  --pico-form-element-border-color: var(--so-line-strong);
+  --pico-muted-border-color: var(--so-line);
+  --pico-switch-background-color: var(--so-line-strong);
+  --pico-secondary: #bfc7d9;
+  --pico-secondary-hover: #dfe3eb;
+}
+:root,
+[data-theme] {
+  /* 操作の層の面 (下のタブ・dock・地図の上の操作)。メニューの面を 92% 残して下をうっすら見せる。ぼかさない */
+  --so-float: color-mix(in srgb, var(--so-pop) 92%, transparent);
+  --so-hover: var(--so-subtle);
+  --so-hover-soft: color-mix(in srgb, var(--so-subtle) 55%, transparent);
+  --so-btn-solid: var(--so-float);
+  --so-btn-solid-hover: var(--so-pop);
+  --so-btn-lift: var(--so-shadow-pop);
+  --so-btn-solid-text: var(--so-fg);
+  --so-btn-tonal: transparent;
+  --so-btn-tonal-hover: var(--so-hover-soft);
+  --so-btn-text: var(--pico-secondary-hover);
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  [data-theme] {
+    --so-float: var(--so-pop);
+  }
 }
 
-* {
-  box-sizing: border-box;
+:where(
+  a,
+  button,
+  summary,
+  select,
+  [tabindex],
+  input:is([type="checkbox"], [type="radio"])
+):focus-visible {
+  outline: 2px solid var(--pico-primary);
+  outline-offset: 2px;
 }
-
 html,
 body {
-  margin: 0;
   height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family:
-    system-ui,
-    -apple-system,
-    "Hiragino Kaku Gothic ProN",
-    "Noto Sans JP",
-    "Yu Gothic",
-    sans-serif;
-  font-size: 14px;
   overscroll-behavior: none;
 }
-
-#map {
-  position: absolute;
-  inset: 0;
-  background: #0b1013;
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--so-line-strong) transparent;
 }
-
-/* ---------- パネル ---------- */
-
-.panel {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 1000;
-  width: 350px;
-  max-height: calc(100dvh - 24px);
-  display: flex;
-  flex-direction: column;
-  background: var(--panel);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  transition:
-    transform 0.22s ease,
-    opacity 0.22s ease;
+*:hover {
+  scrollbar-color: var(--so-muted) transparent;
 }
-
-body.panel-hidden .panel {
-  transform: translateX(calc(-100% - 16px));
-  opacity: 0;
-  pointer-events: none;
-}
-
-.panel__header {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 14px 16px 10px;
-  border-bottom: 1px solid var(--line);
-}
-
-.panel__title {
+body {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  background: var(--so-bg);
+  word-break: auto-phrase;
+  line-break: strict;
 }
-
-.panel__meta {
-  margin: 4px 0 0;
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--muted);
+p,
+li,
+dd {
+  text-wrap: pretty;
 }
-
-.panel__close {
-  margin-left: auto;
-  width: 26px;
-  height: 26px;
-  flex: none;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
-
-.panel__body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 14px 16px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.panel__footer {
-  padding: 8px 16px 10px;
-  border-top: 1px solid var(--line);
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.panel__footer a,
-.link-btn {
-  color: var(--accent);
-}
-
-.panel-toggle {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 1001;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel);
-  backdrop-filter: blur(12px);
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
-
-body.panel-hidden .panel-toggle {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* ---------- フォーム部品 ---------- */
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.field--row {
-  flex-direction: row;
-  gap: 10px;
-}
-
-.field--grow {
-  min-height: 0;
-}
-
-.field__label {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-}
-
-.field__inline {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.field__inline--check {
-  justify-content: flex-start;
-}
-
+input:not([type="checkbox"], [type="radio"]),
 select,
-input[type="search"] {
-  width: 100%;
-  padding: 7px 9px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text);
-  font: inherit;
-  font-size: 13px;
+button,
+p,
+ul,
+ol,
+dl,
+dd,
+h1,
+h2,
+h3,
+details,
+label,
+section {
+  margin-bottom: 0;
 }
 
-/*
- * 選択肢はブラウザが描くので、色を明示しないと配色を継がずに読めなくなる
- * （閉じているときの薄い背景をそのまま使われて、暗い字が暗い地に乗る）。
- */
-option {
-  background: var(--panel-solid);
-  color: var(--text);
-}
-
-select:focus-visible,
-input:focus-visible,
-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.check {
+/* ---- 並べる・文字 ---- */
+.stack {
   display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  font-size: 11px;
-  line-height: 1.35;
-  color: var(--muted);
-  cursor: pointer;
+  flex-direction: column;
+  gap: var(--so-space-3);
 }
-
-.check input {
-  margin: 1px 0 0;
-  accent-color: var(--accent);
+.muted {
+  color: var(--so-muted);
 }
-
-.link-btn {
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
+.small {
+  font-size: var(--so-text-sm);
 }
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
+.tiny {
+  font-size: var(--so-text-xs);
 }
-
-.chips--scroll {
-  max-height: 92px;
-  overflow-y: auto;
-  padding-right: 2px;
+.bold {
+  font-weight: var(--so-weight-bold);
 }
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 9px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--muted);
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.chip[aria-pressed="true"] {
-  border-color: var(--chip, var(--accent));
-  background: color-mix(in srgb, var(--chip, var(--accent)) 22%, transparent);
-  color: var(--text);
-}
-
-.chip__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--chip, var(--accent));
-}
-
-.chip__count {
-  font-size: 10px;
-  opacity: 0.65;
+.num {
   font-variant-numeric: tabular-nums;
 }
-
-.count {
-  font-weight: 400;
-  color: var(--muted);
-}
-
-/* ---------- 一覧 ---------- */
-
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.list__item {
-  display: grid;
-  grid-template-columns: 52px 1fr;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 4px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.list__item:hover {
-  background: rgba(255, 255, 255, 0.07);
-}
-
-.list__thumb {
-  width: 52px;
-  height: 40px;
-  border-radius: 6px;
-  object-fit: cover;
-  background: rgba(255, 255, 255, 0.07);
-  border-left: 3px solid var(--pin);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.25);
-}
-
-.list__body {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.list__name {
-  font-size: 12px;
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.truncate {
   overflow: hidden;
-}
-
-.list__meta {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10px;
-  color: var(--muted);
-}
-
-.list__status {
-  padding: 0 5px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--pin) 25%, transparent);
-  color: var(--text);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.list__empty {
-  padding: 12px 4px;
-  color: var(--muted);
-  font-size: 12px;
+/* ---- ボタン (強弱は層と字の太さで付け、色では塗らない。sonae と同じ) ---- */
+:root {
+  --so-btn-radius: var(--so-radius-full);
+  --so-btn-h: 2.625rem;
+  --so-btn-h-sm: 2.125rem;
+}
+@media (pointer: coarse) {
+  :root {
+    --so-btn-h-sm: 2.5rem;
+  }
+}
+:where(button, [type="button"], [role="button"], a.button):not(div) {
+  --pico-background-color: var(--so-btn-solid);
+  --pico-border-color: transparent;
+  --pico-color: var(--so-btn-solid-text);
+  --pico-box-shadow: none;
+  border-radius: var(--so-btn-radius);
+}
+:where(button, a.button) {
+  transition:
+    background-color var(--so-duration) var(--so-ease),
+    color var(--so-duration) var(--so-ease),
+    box-shadow var(--so-duration) var(--so-ease),
+    scale var(--so-duration-move) var(--so-ease-spring);
+}
+/* 主のボタン (詳しい内容の「詳細ページ」)。操作の層の面と影のカプセルで、字は本文の色の太字 */
+a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: var(--so-btn-h);
+  padding: 0 var(--so-space-4);
+  border: 0;
+  background-color: var(--pico-background-color);
+  box-shadow: var(--so-btn-lift);
+  color: var(--pico-color);
+  font-weight: var(--so-weight-bold);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+a.button:hover {
+  --pico-background-color: var(--so-btn-solid-hover);
+}
+a.button:active {
+  scale: 0.97;
+  transition: scale var(--so-duration) var(--so-ease);
+}
+/* 控え (`.secondary`) と字だけ (`.ghost`) のボタンは平ら。乗せたら薄い地 */
+:where(button, [type="button"], a.button):is(.secondary, .ghost) {
+  --pico-background-color: transparent;
+  --pico-color: var(--so-btn-text);
+  --pico-box-shadow: none;
+  box-shadow: none;
+  font-weight: var(--so-weight);
+}
+:where(button, [type="button"], a.button).ghost {
+  --pico-color: inherit;
+}
+a.button.secondary {
+  box-shadow: none;
+}
+:where(button, [type="button"], a.button):is(.secondary, .ghost):where(
+    :hover,
+    :active
+  ) {
+  --pico-background-color: var(--so-btn-tonal-hover);
+  --pico-box-shadow: none;
+}
+:where(button, [type="button"], a.button).small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: var(--so-btn-h-sm);
+  padding-block: 0;
+  padding-inline: var(--so-space-3);
+  font-size: var(--so-text-sm);
 }
 
-.list__more {
-  padding: 8px 4px 0;
-  color: var(--muted);
-  font-size: 11px;
+/* ---- 入力欄 (線も凹みも付けず、平らな面だけ) ---- */
+.field__input,
+select {
+  height: 2.5rem;
+  margin: 0;
+  border: 0;
+  border-radius: var(--so-radius);
+  background-color: var(--so-field);
+  box-shadow: none;
+  color: var(--pico-color);
+  font-size: var(--so-text-sm);
+}
+.field__input {
+  width: 100%;
+  padding: 0 var(--so-space-3);
+}
+select {
+  padding-block: 0;
+}
+.field__input:focus,
+select:focus {
+  --pico-box-shadow: none;
+  border: 0;
+  background-color: var(--so-field);
+  outline: 2px solid var(--pico-primary);
+  outline-offset: 2px;
+}
+/* 指で押す端末は 16px (それより小さいと iPhone の Safari が押したときに拡大する) */
+@media (pointer: coarse) {
+  .field__input,
+  select,
+  .search-field input {
+    font-size: var(--so-text-base);
+  }
+}
+/* 選択肢はブラウザが描くので、テーマの色を明示する */
+option {
+  background: var(--so-pop);
+  color: var(--so-fg);
 }
 
-/* ---------- ポップアップ ---------- */
-
-/* マーカーとクラスタは WebGL 側 (円レイヤ) で描くので CSS は無い */
-
-.pop-wrap .maplibregl-popup-content {
+/* ---- 件の面 (1 件が 2〜3 行の一覧)。線で区切らず、件の間の余白で 1 本ずつに見せる ---- */
+.item {
+  border-radius: var(--so-item-radius);
+  background: var(--so-item);
+  box-shadow: var(--so-item-shadow);
+  transition:
+    background-color var(--so-duration) var(--so-ease),
+    opacity var(--so-duration-enter) var(--so-ease);
+}
+@starting-style {
+  .item {
+    opacity: 0;
+  }
+}
+.item:hover {
+  background: var(--so-item-hover);
+}
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--so-list-gap);
+  margin: 0;
   padding: 0;
-  max-height: min(78dvh, 460px);
-  overflow-x: hidden;
+  list-style: none;
+}
+.item-list > li {
+  margin: 0;
+  list-style: none;
+}
+
+/* ---- タグ (状態だけ。淡い地に、状態の色の点と字) ---- */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--so-space-1);
+  padding: 0 var(--so-space-2);
+  border-radius: var(--so-radius-full);
+  background: var(--so-subtle);
+  color: inherit;
+  font-size: var(--so-text-xs);
+  font-weight: var(--so-weight);
+  line-height: 1.75;
+  white-space: nowrap;
+}
+/* ステータスの色の点 (地図の印と同じ色)。色だけに頼らず、字を添える */
+.dot {
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--pin, var(--so-muted));
+}
+
+/* ---- 空の状態 (一覧の場所の真ん中に、太字の一言) ---- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--so-space-2);
+  padding: var(--so-space-6) var(--so-space-4);
+  text-align: center;
+}
+
+/* ---- チップ (横に並ぶ選択。塗らず、主の色の太字と字の幅いっぱいの下線) ---- */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--so-space-1);
+  margin: 0 calc(-1 * var(--so-space-3));
+}
+.chips--scroll {
+  max-height: 7.5rem;
   overflow-y: auto;
-  background: var(--panel-solid);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.chip {
+  --pico-background-color: transparent;
+  --pico-color: var(--so-btn-text);
+  --pico-box-shadow: none;
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.375rem;
+  width: auto;
+  min-height: var(--so-btn-h-sm);
+  margin: 0;
+  padding: 0 var(--so-space-3);
+  border: 0;
+  border-radius: var(--so-radius-full);
+  background-color: var(--pico-background-color);
+  color: var(--pico-color);
+  font-size: var(--so-text-sm);
+  font-weight: var(--so-weight);
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--so-duration) var(--so-ease);
+}
+.chip:hover {
+  --pico-background-color: var(--so-hover-soft);
+}
+.chip .num {
+  color: var(--so-muted);
+}
+.chip[aria-pressed="true"] {
+  --pico-color: var(--so-primary-text);
+  color: var(--so-primary-text);
+  font-weight: var(--so-weight-bold);
+}
+.chip[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: var(--so-space-3);
+  bottom: 0.3rem;
+  height: var(--so-mark);
+  border-radius: var(--so-mark);
+  background: var(--pico-primary);
+  pointer-events: none;
+}
+.chip .dot {
+  background: var(--chip);
 }
 
-.pop-wrap .maplibregl-popup-tip {
-  border-top-color: var(--panel-solid);
-  border-bottom-color: var(--panel-solid);
+/* ---- 外枠。窓の高さいっぱいにし、ページそのものは巻かない (一覧は列の中で巻く) ---- */
+.shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--so-bg);
 }
 
-.pop-wrap .maplibregl-popup-close-button {
-  width: 24px;
-  height: 24px;
-  color: #fff;
-  font-size: 18px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-  background: none;
+/* ---- ヘッダー (広い形)。窓が巻けないので、いつも平ら ---- */
+.navbar {
+  display: grid;
+  flex: none;
+  grid-template-columns:
+    minmax(max-content, 1fr) minmax(8rem, 36rem)
+    minmax(max-content, 1fr);
+  align-items: center;
+  gap: var(--so-space-4);
+  min-height: 3.25rem;
+  padding: var(--so-bar-pad) var(--so-space-3);
+}
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--so-space-2);
+  justify-self: start;
+  margin: 0;
+  color: var(--so-fg);
+  font-size: var(--so-text-lg);
+  font-weight: var(--so-weight-bold);
+}
+.logo img {
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
-.pop-wrap .maplibregl-popup-close-button:hover {
-  background: rgba(255, 255, 255, 0.12);
+/* ---- 地名・住所の検索の欄と候補 (sonae の SearchField と同じ形) ---- */
+.place-search {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--so-space-2);
+  width: 100%;
+  min-width: 0;
+  height: 2.5rem;
+  margin: 0;
+  padding-inline: var(--so-space-3) var(--so-space-2);
+  border-radius: var(--so-radius);
+  background: var(--so-field);
+  color: var(--so-muted);
+}
+.search-field svg {
+  flex-shrink: 0;
+}
+.search-field:focus-within {
+  outline: 2px solid var(--pico-primary);
+  outline-offset: 2px;
+}
+.search-field input {
+  flex: 1 1 0%;
+  min-width: 0;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--pico-color);
+  font-size: var(--so-text-sm);
+  outline: none;
+}
+/* 場所の候補。欄の下に重なるので操作の層 (メニューと同じ面と影)。選んでいる候補はメニューと同じ地の色 */
+.place-search__list,
+.place-search__status {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  border-radius: var(--so-radius-lg);
+  background: var(--so-pop);
+  box-shadow: var(--so-shadow-pop);
+  color: var(--pico-color);
+}
+.place-search__list {
+  top: calc(100% + var(--so-space-1));
+  max-height: min(24rem, 60dvh);
+  overflow-y: auto;
+  padding: var(--so-space-2);
+  list-style: none;
+}
+.place-search__status {
+  top: calc(100% + var(--so-space-1));
+  padding: var(--so-space-2) var(--so-space-3);
+  color: var(--so-muted);
+  font-size: var(--so-text-sm);
+}
+.place-search__opt {
+  margin: 0;
+  padding: var(--so-space-2) var(--so-space-3);
+  border-radius: calc(var(--so-radius-lg) - var(--so-space-2));
+  list-style: none;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.place-search__opt:hover,
+.place-search__opt[aria-selected="true"] {
+  background: var(--so-pop-hover);
 }
 
+/*
+ * ---- 本体 (広い形): 地図 | 一覧の列 (22rem。1600px から 26rem) ----
+ * 主の中身を左、添える列を右に置く。DOM は一覧が先 (キーボードの順) のまま、置く場所だけ入れ替える
+ */
+.stage {
+  display: grid;
+  flex: 1 1 0%;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  min-height: 0;
+}
+@media (min-width: 1600px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr) 26rem;
+  }
+}
+.list-pane {
+  display: flex;
+  grid-row: 1;
+  grid-column: 2;
+  flex-direction: column;
+  gap: var(--so-space-3);
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--so-space-3) var(--so-space-4);
+  outline: none;
+}
+.map-pane {
+  --map-radius: var(--so-item-radius);
+  position: relative;
+  grid-row: 1;
+  grid-column: 1;
+  isolation: isolate;
+  min-height: 0;
+  padding: 0 0 var(--so-space-3) var(--so-space-3);
+}
+#map {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--map-radius, 0);
+  overflow: hidden;
+  background: #0b1a2e;
+}
+.phone-search,
+.dock,
+.tabbar,
+.to-map {
+  display: none;
+}
+
+/* ---- 絞り込み ---- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--so-space-1);
+}
+.field--row {
+  flex-direction: row;
+  gap: var(--so-space-3);
+}
+/* 見出し (縦の並びの見出しと同じ太字の本文) */
+.field__label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--so-space-2);
+  margin: 0;
+  color: var(--so-fg);
+  font-size: var(--so-text-sm);
+  font-weight: var(--so-weight-bold);
+  line-height: 1.5;
+}
+.field__inline {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--so-space-1);
+  min-width: 0;
+}
+.count {
+  color: var(--so-muted);
+  font-weight: var(--so-weight);
+}
+/* 1 つのことのオン/オフはスイッチ (Pico の role="switch") */
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--so-space-2);
+  margin-top: var(--so-space-2);
+  font-size: var(--so-text-sm);
+  cursor: pointer;
+}
+.check input {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+/* ---- 一覧の行 (件の面に乗った 2 段。左に写真) ---- */
+.list__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--so-space-3);
+  min-height: var(--so-item-h);
+  padding: var(--so-space-2) var(--so-space-3);
+  cursor: pointer;
+}
+/* 件いっぱいを押せる行の焦点の線は内側に引く */
+.list__item:focus-visible {
+  outline-offset: -2px;
+}
+/* 開いている件は左の縦線と太字。面は塗り替えない */
+.list__item[aria-current="true"] .list__name {
+  color: var(--so-primary-text);
+  font-weight: var(--so-weight-bold);
+}
+.list__item[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.75rem;
+  left: 0;
+  width: var(--so-mark);
+  border-radius: var(--so-mark);
+  background: var(--pico-primary);
+}
+.list__thumb {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 2.625rem;
+  border-radius: var(--so-radius-sm);
+  background: var(--so-subtle);
+  color: var(--so-muted);
+  object-fit: cover;
+}
+.list__body {
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+.list__name {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: var(--so-text-sm);
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.list__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--so-space-2);
+  min-width: 0;
+  color: var(--so-muted);
+  font-size: var(--so-text-xs);
+}
+.list__meta > :last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.list__more {
+  padding: var(--so-space-2) var(--so-space-3) 0;
+  color: var(--so-muted);
+  font-size: var(--so-text-sm);
+}
+
+/* ---- 詳しい内容 (一覧の列が替わる)。地のまま ---- */
+.detail-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 calc(-1 * var(--so-space-3));
+}
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--so-space-3);
+}
+/* `.stack` と `.detail` は flex なので、隠すときを明示する (Blades の misc.css の [hidden] にも頼らない) */
+.browse[hidden],
+.detail[hidden] {
+  display: none;
+}
+.pop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--so-space-3);
+}
 .pop__photo {
   display: block;
   width: 100%;
-  height: 150px;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--so-item-radius);
+  background: var(--so-subtle);
   object-fit: cover;
-  background: rgba(255, 255, 255, 0.06);
 }
-
 .pop__inner {
-  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--so-space-3);
 }
-
 .pop__name {
-  margin: 0 0 6px;
-  font-size: 13px;
+  margin: 0;
+  font-size: var(--so-text-lg);
+  font-weight: var(--so-weight-bold);
   line-height: 1.45;
-  font-weight: 700;
 }
-
 .pop__tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: var(--so-space-1) var(--so-space-2);
+  margin: 0;
+  font-size: var(--so-text-sm);
 }
-
-.pop__badge {
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: var(--pin);
-  color: #06110c;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.pop__tag {
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--muted);
-  font-size: 11px;
-}
-
 .pop__rows {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 3px 10px;
-  font-size: 11px;
-  line-height: 1.5;
+  gap: var(--so-space-1) var(--so-space-3);
+  margin: 0;
+  font-size: var(--so-text-sm);
 }
-
 .pop__rows dt {
-  color: var(--muted);
+  color: var(--so-muted);
+  font-weight: var(--so-weight);
 }
-
 .pop__rows dd {
   margin: 0;
 }
-
 .pop__links {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  flex-wrap: wrap;
+  gap: var(--so-space-2);
 }
 
-.pop__link {
-  flex: 1;
-  padding: 7px 0;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  color: var(--text);
-  font-size: 12px;
-  text-align: center;
-  text-decoration: none;
+/* ---- 同じ所に重なった物件を選ぶ吹き出し (MapLibre の吹き出し。メニューと同じ面) ---- */
+.pop-wrap .maplibregl-popup-content {
+  max-height: min(60dvh, 24rem);
+  overflow-y: auto;
+  padding: var(--so-space-2);
+  border-radius: var(--so-item-radius);
+  background: var(--so-pop);
+  box-shadow: var(--so-shadow-pop);
+  color: var(--so-fg);
+  font-family: var(--pico-font-family-sans-serif);
 }
-
-.pop__link--primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #06221a;
-  font-weight: 700;
+.pop-wrap .maplibregl-popup-tip {
+  display: none;
 }
-
-.pop-pick {
-  padding: 12px 14px 14px;
+.pop-wrap .maplibregl-popup-close-button {
+  display: none;
 }
-
 .pop-pick__lead {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--muted);
+  margin: 0;
+  padding: var(--so-space-1) var(--so-space-3);
+  color: var(--so-muted);
+  font-size: var(--so-text-xs);
+  font-weight: var(--so-weight-bold);
 }
-
 .pop-pick__list {
-  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  list-style: none;
 }
-
+.pop-pick__list li {
+  margin: 0;
+  list-style: none;
+}
 .pop-pick__item {
-  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: none;
-  color: var(--text);
+  gap: 0.125rem;
+  width: 100%;
+  margin: 0;
+  padding: var(--so-space-2) var(--so-space-3);
+  border: 0;
+  border-radius: calc(var(--so-item-radius) - var(--so-space-2));
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-size: var(--so-text-sm);
   text-align: left;
-  cursor: pointer;
 }
-
 .pop-pick__item:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--so-pop-hover);
 }
-
-.pop-pick__name {
-  font-size: 12px;
-  line-height: 1.4;
-  font-weight: 700;
-}
-
 .pop-pick__meta {
-  font-size: 11px;
-  color: var(--muted);
+  color: var(--so-muted);
+  font-size: var(--so-text-xs);
 }
 
-/* ---------- MapLibre の暗色化 ---------- */
-
-.maplibregl-ctrl-group {
-  background: var(--panel-solid);
-  border: 1px solid var(--line);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+/* 選んだ物件の印 (地図の上)。主の色の輪 */
+.pick-mark {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 3px solid var(--pico-primary);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px #fff,
+    0 1px 4px rgb(0 0 0 / 0.6);
+  pointer-events: none;
 }
 
-.maplibregl-ctrl-group button + button {
-  border-top-color: var(--line);
+/* ---- 注意文と出典 (一覧のいちばん下) ---- */
+.foot {
+  margin-top: auto;
+  padding-top: var(--so-space-4);
+}
+.foot p {
+  margin: 0 0 var(--so-space-2);
 }
 
-.maplibregl-ctrl-group button .maplibregl-ctrl-icon {
-  filter: invert(1) brightness(1.4);
-}
-
-.maplibregl-ctrl-group button:not(:disabled):hover {
-  background: #1b242b;
-}
-
-.maplibregl-ctrl-scale {
-  background: rgba(15, 20, 24, 0.6);
-  border-color: var(--line);
-  color: var(--text);
-  font-size: 10px;
-}
-
-/* 右下の操作は、角にぴったり付けた出典の帯の上に置く */
+/* ---- 地図の上の操作 (ズームと縮尺)。右下にまとめ、操作の層 (面と影) に乗せる ---- */
 .maplibregl-ctrl-bottom-right {
-  bottom: 16px;
+  bottom: calc(var(--map-bottom, 0px) + 0.9375rem);
 }
-
-/* ---------- 地図の出典 ---------- */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+  margin: 0 var(--so-space-3) var(--so-space-2) 0;
+}
+.maplibregl-ctrl-group:not(:empty) {
+  overflow: hidden;
+  border-radius: var(--so-radius-full);
+  background: var(--so-float);
+  box-shadow: var(--so-shadow-pop);
+}
+.maplibregl-ctrl-group button {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0;
+}
+.maplibregl-ctrl-group button + button {
+  border-top: 0;
+}
+.maplibregl-ctrl-group button:not(:disabled):hover {
+  background: var(--so-hover-soft);
+}
+[data-theme="dark"] .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+.maplibregl-ctrl-scale {
+  border-color: var(--so-muted);
+  background: color-mix(in srgb, var(--so-bg) 65%, transparent);
+  color: var(--so-fg);
+  font-size: 0.625rem;
+}
 
 /*
+ * ---- 地図の隅の出典 ----
  * 国土地理院の決まり (表示されている間は常に見えるように明示) に沿い、いつも出す。
- * 地図の右下の角にぴったり付けた、余白の無い小さく薄い帯 (よくある Web 地図の出典の形)。
- * 写真の上でも読めるよう、地の色を 65% の濃さで敷く。押すと全文が上に開く
+ * 地図の隅にぴったり付けた、余白の無い小さく薄い帯 (よくある Web 地図の出典の形)。
+ * 写真の上でも読めるよう、地の色を 65% の濃さで敷く。押すと全文が開く
  */
 .map-credit {
   position: absolute;
   right: 0;
-  bottom: 0;
-  z-index: 900;
+  bottom: var(--so-space-3);
+  z-index: 2;
   max-width: 100%;
-  font-size: 10px;
+  color: var(--so-muted);
+  font-size: 0.625rem;
   line-height: 1.5;
-  color: var(--muted);
 }
-
-/* 開いた全文は検索の欄より上に重ねる */
-.map-credit[open] {
-  z-index: 1003;
-}
-
 .map-credit > summary {
   display: block;
-  padding: 0 4px;
-  background: color-mix(in srgb, var(--bg) 65%, transparent);
-  cursor: pointer;
+  padding: 0 0.3rem;
+  border-bottom-right-radius: var(--map-radius, 0);
+  background: color-mix(in srgb, var(--so-bg) 65%, transparent);
   list-style: none;
   text-align: right;
+  cursor: pointer;
 }
-
 .map-credit > summary::-webkit-details-marker {
   display: none;
 }
-
+.map-credit > summary::after {
+  display: none;
+}
 .map-credit > summary:hover {
-  color: var(--text);
+  color: var(--so-fg);
   text-decoration: underline;
 }
-
 .map-credit__body {
   position: absolute;
-  right: 0;
-  bottom: 100%;
-  width: min(420px, calc(100vw - 24px));
+  right: var(--so-space-2);
+  bottom: calc(100% + var(--so-space-1));
+  width: min(26rem, calc(100vw - 2rem));
   max-height: 60dvh;
   overflow-y: auto;
-  margin: 0 0 6px;
-  padding: 8px 12px;
-  background: var(--panel-solid);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  font-size: 11px;
-  color: var(--text);
+  padding: var(--so-space-2) var(--so-space-3);
+  border-radius: var(--so-item-radius);
+  background: var(--so-pop);
+  box-shadow: var(--so-shadow-pop);
+  color: var(--so-fg);
+  font-size: var(--so-text-xs);
 }
-
 .map-credit__body p {
-  margin: 4px 0;
+  margin: var(--so-space-1) 0;
 }
 
-.map-credit__body a {
-  color: var(--accent);
-}
-
-/* ---------- 地名・住所の検索 ---------- */
-
-.place-search {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 1002;
-  width: 280px;
-}
-
-.place-search input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-  color: var(--text);
-  font: inherit;
-  font-size: 13px;
-}
-
-.place-search input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-}
-
-.place-search__list,
-.place-search__status {
-  margin: 6px 0 0;
-  background: var(--panel-solid);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
-
-.place-search__list {
-  max-height: 50dvh;
-  overflow-y: auto;
-  padding: 4px;
-  list-style: none;
-}
-
-.place-search__opt {
-  padding: 7px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1.4;
-  cursor: pointer;
-}
-
-.place-search__opt:hover,
-.place-search__opt[aria-selected="true"] {
-  background: rgba(255, 255, 255, 0.09);
-}
-
-.place-search__status {
-  padding: 7px 12px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-/* ---------- トースト ---------- */
-
+/* ---- 地図の上の知らせ。地図の上の真ん中に、操作の層と同じ面で ---- */
 .toast {
   position: absolute;
-  bottom: 20px;
   left: 50%;
+  top: calc(var(--map-top, 0px) + var(--so-space-3));
+  z-index: 3;
+  max-width: min(24rem, calc(100% - 2 * var(--so-space-3)));
+  margin: 0;
+  padding: var(--so-space-2) var(--so-space-3);
+  border-radius: var(--so-item-radius);
+  background: var(--so-pop);
+  box-shadow: var(--so-shadow-pop);
+  color: var(--so-fg);
   translate: -50% 0;
-  z-index: 1200;
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--panel-solid);
-  font-size: 12px;
 }
 
-/* ---------- モバイル ---------- */
+/* ---- スマホの形 (`<html data-phone>`) ---- */
+:where(html[data-phone]) .shell {
+  --so-tabbar: calc(4rem + 0.5rem + env(safe-area-inset-bottom));
+  --dock-h: 2.75rem;
+}
+:where(html[data-phone]) .navbar {
+  display: none;
+}
+:where(html[data-phone]) .stage {
+  position: relative;
+  display: block;
+}
+/* 地図は画面いっぱい。下のタブと dock の分だけ、地図の上の操作を上げる */
+:where(html[data-phone]) .map-pane {
+  --map-radius: 0;
+  --map-top: env(safe-area-inset-top);
+  --map-bottom: calc(
+    var(--so-tabbar) + var(--so-dock-gap) + var(--dock-h) + var(--so-space-1)
+  );
+  position: absolute;
+  inset: 0;
+  padding: 0;
+}
+:where(html[data-phone]) .maplibregl-ctrl-bottom-right {
+  bottom: var(--map-bottom);
+}
+/* 出典は地図の右上の角 (下は浮いた下のタブと dock が重なるため)。全文は下に開く */
+:where(html[data-phone]) .map-credit {
+  top: var(--map-top);
+  bottom: auto;
+}
+:where(html[data-phone]) .map-credit > summary {
+  border-radius: 0;
+}
+:where(html[data-phone]) .map-credit__body {
+  top: calc(100% + var(--so-space-1));
+  bottom: auto;
+}
+:where(html[data-phone]) .toast {
+  top: calc(var(--map-top) + 0.9375rem + var(--so-space-3));
+}
+/* 一覧は地図の上に重ねる面。地図のタブでは透明にして下へずらし、押せなくする (透明度と transform だけで動かす) */
+:where(html[data-phone]) .list-pane {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  padding: calc(env(safe-area-inset-top) + var(--so-space-3)) var(--so-space-3)
+    calc(var(--so-tabbar) + var(--so-space-5));
+  background: var(--so-bg);
+  transition:
+    opacity var(--so-duration-enter) var(--so-ease),
+    transform var(--so-duration-enter) var(--so-ease-spring),
+    visibility var(--so-duration-enter) allow-discrete;
+}
+:where(html[data-phone]) .shell[data-view="map"] .list-pane {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition-duration: var(--so-duration-exit);
+  transition-timing-function: var(--so-ease-exit);
+}
+:where(html[data-phone]) .phone-search,
+:where(html[data-phone]) .to-map {
+  display: block;
+}
+:where(html[data-phone]) .to-map {
+  display: inline-flex;
+}
 
-@media (max-width: 640px) {
-  .panel {
-    top: auto;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    max-height: 58dvh;
-    border-radius: 14px 14px 0 0;
+/* dock (地図のタブで、選んでいる物件の 1 行)。下のタブから `--so-dock-gap` 上のカプセル */
+:where(html[data-phone]) .dock {
+  position: fixed;
+  inset-inline: var(--so-dock-inset);
+  bottom: calc(var(--so-tabbar) + var(--so-dock-gap));
+  z-index: var(--so-z-dock);
+  display: flex;
+  align-items: center;
+  height: var(--dock-h);
+  padding-inline: var(--so-space-1);
+  border-radius: var(--so-radius-full);
+  background: var(--so-float);
+  box-shadow: var(--so-shadow-pop);
+}
+:where(html[data-phone]) .shell[data-view="list"] .dock {
+  display: none;
+}
+.dock-pick {
+  display: flex;
+  flex: 1 1 0%;
+  align-items: center;
+  min-width: 0;
+  min-height: calc(var(--dock-h) - 2 * var(--so-space-1));
+  margin: 0;
+  padding: 0 var(--so-space-3);
+  border: 0;
+  border-radius: var(--so-radius-full);
+  background: transparent;
+  box-shadow: none;
+  color: var(--so-fg);
+  font-size: var(--so-text-sm);
+  text-align: start;
+}
+.dock-pick[hidden],
+.dock-hint[hidden] {
+  display: none;
+}
+.dock-hint {
+  padding-inline: var(--so-space-3);
+}
+
+/* 下のタブ (いつも浮いた操作の層) */
+:where(html[data-phone]) .tabbar {
+  position: fixed;
+  inset: auto var(--so-dock-inset)
+    calc(var(--so-space-2) + env(safe-area-inset-bottom));
+  z-index: var(--so-z-header);
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  padding: var(--so-space-1);
+  border-radius: 2rem;
+  background: var(--so-float);
+  box-shadow: var(--so-shadow-pop);
+}
+.tabbar .tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  width: 100%;
+  min-height: 3.5rem;
+  margin: 0;
+  padding: var(--so-space-1) 0;
+  border: 0;
+  border-radius: 1.75rem;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-size: var(--so-text-2xs);
+  font-weight: var(--so-weight);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+@media (hover: hover) {
+  .tabbar .tab:hover {
+    background: var(--so-hover-soft);
   }
-
-  body.panel-hidden .panel {
-    transform: translateY(100%);
+}
+/* 選んでいるタブは主の色の太字と、字の幅いっぱいの下線 */
+.tabbar .tab[aria-current="page"] {
+  color: var(--so-primary-text);
+  font-weight: var(--so-weight-bold);
+}
+.tabbar .tab > span {
+  position: relative;
+}
+.tabbar .tab[aria-current="page"] > span::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 0.125rem);
+  height: var(--so-mark);
+  border-radius: var(--so-mark);
+  background: var(--pico-primary);
+}
+@media (min-width: 640px) {
+  .tabbar .tab {
+    font-size: var(--so-text-xs);
   }
+}
 
-  .panel-toggle {
-    top: auto;
-    /* 下端の縮尺と並ばないよう、少し上に置く */
-    bottom: 52px;
-    left: 50%;
-    translate: -50% 0;
+/* 動きを減らす設定の端末では、移り変わりの時間を 0 にし、繰り返す動きを付けない */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --so-duration: 0s;
+    --so-duration-enter: 0s;
+    --so-duration-move: 0s;
+    --so-duration-exit: 0s;
   }
-
-  .field--row {
-    flex-direction: column;
-  }
-
-  /* 出典は上の角に移すので、右下の操作は下端まで下ろす */
-  .maplibregl-ctrl-bottom-right {
-    bottom: 0;
-  }
-
-  /* パネルが画面の下半分を覆うので、地図のコントロールはその上に逃がす */
-  body:not(.panel-hidden) .maplibregl-ctrl-bottom-right {
-    bottom: 58dvh;
-  }
-
-  /*
-   * 下はパネルが覆うので、出典は地図の右上の角にぴったり付ける (パネルを開いても隠れない)。
-   * 全文は下に開く。検索の欄はその帯の下に置く
-   */
-  .map-credit {
-    top: 0;
-    bottom: auto;
-  }
-
-  .map-credit__body {
-    top: 100%;
-    bottom: auto;
-    margin: 6px 0 0;
-  }
-
-  .place-search {
-    top: 22px;
-    left: 12px;
-    width: auto;
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
   }
 }

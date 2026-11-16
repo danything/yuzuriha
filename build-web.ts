@@ -23,6 +23,26 @@ for (const [from, to] of copies) {
   await Bun.write(to, Bun.file(from));
 }
 
+// 見た目の土台は Blades (Pico)。sonae の src/app.css が読むのと同じ部品だけを 1 つにまとめて置く。
+// どれも `blades` の層 (@layer) に入っているので、assets/styles.css の規則が詳細度に関係なく勝つ
+const BLADES = "node_modules/@anyblades/blades/css/layered";
+const bladesParts = [
+  "variables",
+  "layout/document",
+  "content/typography",
+  "content/link",
+  "content/button",
+  "content/misc",
+  "forms/basics",
+  "forms/checkbox-radio-switch",
+  "utilities",
+];
+const bladesCss = await Promise.all(
+  bladesParts.map((part) => Bun.file(`${BLADES}/${part}.css`).text()),
+);
+await Bun.write(`${OUT}/blades.css`, bladesCss.join("\n"));
+copies.push([BLADES, `${OUT}/blades.css`]);
+
 const result = await Bun.build({
   entrypoints: ["src/main.ts"],
   outdir: OUT,
@@ -40,7 +60,7 @@ const sizes = await Promise.all(
   [...copies.map(([, to]) => to), `${OUT}/main.js`].map(async (path) => {
     const bytes = new Uint8Array(await Bun.file(path).arrayBuffer());
     const gz = Bun.gzipSync(bytes).byteLength;
-    return `  ${path.padEnd(26)} ${(bytes.byteLength / 1024).toFixed(0).padStart(4)}KB (gzip ${(gz / 1024).toFixed(0)}KB)`;
+    return `  ${path.padEnd(28)} ${(bytes.byteLength / 1024).toFixed(0).padStart(4)}KB (gzip ${(gz / 1024).toFixed(0)}KB)`;
   }),
 );
 console.log("フロント出力完了");

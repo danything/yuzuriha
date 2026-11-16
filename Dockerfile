@@ -4,7 +4,7 @@ EXPOSE 5173
 ENV PORT=5173
 ENV TZ=Asia/Tokyo
 
-# maplibre-gl は devDependency。dist を assets/ へ写すためだけに要る。
+# maplibre-gl と @anyblades/blades は devDependency。dist と CSS を assets/ へ写すためだけに要る。
 FROM base AS builder
 COPY package.json bun.lock ./
 RUN bun i --frozen-lockfile

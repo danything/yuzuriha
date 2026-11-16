@@ -4,6 +4,7 @@
   "workspaces": {
     "": {
       "devDependencies": {
+        "@anyblades/blades": "^3.1.3",
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
         "maplibre-gl": "^6.18.0",
@@ -14,6 +15,8 @@
     },
   },
   "packages": {
+    "@anyblades/blades": ["@anyblades/blades@3.1.3", "", {}, "sha512-Or7QrxkzkW3q26QA9eTmJ+x5Q8ZyJ6dvdIVgg4hLDHmgOjUXLIgn/YOAc8iKl+9pWW+0ks6YYGe9SPtURkrs3g=="],
+
     "@mapbox/jsonlint-lines-primitives": ["@mapbox/jsonlint-lines-primitives@2.0.3", "", {}, "sha512-0SElaV0uMxEnxzBhhX9WTuPyUeMsAN/SS0i16tjuba4/mio63MG9khjC1a0JAiPGXAwvwm4UfHJURCN7nyudQg=="],
 
     "@mapbox/point-geometry": ["@mapbox/point-geometry@1.1.0", "", {}, "sha512-YGcBz1cg4ATXDCM/71L9xveh4dynfGmcLDqufR+nQQy3fKwsAZsWd/x4621/6uJaeB9mwOHE6hPeDgXz9uViUQ=="],
