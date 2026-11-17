@@ -19,7 +19,7 @@
     "@anyblades/blades": "^3.1.4",
     "@types/bun": "^1.4.4",
     "@types/node": "^26.6.6",
-    "maplibre-gl": "^6.18.0",
+    "maplibre-gl": "^6.19.0",
     "oxlint": "^1.94.0",
     "pmtiles": "^4.5.0",
     "typescript": "^7.0.0"
