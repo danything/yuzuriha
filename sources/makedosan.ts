@@ -86,22 +86,31 @@ function sections(html: string): Record<string, string> {
 
 /**
  * 埋め込みの Google マップが指す場所の名前。郵便番号は落とす。
- * src は `/maps/embed?pb=…!2z<base64url の名前>!…` の形
+ * src は `/maps/embed?pb=…!2z<base64 の名前>!…` (場所の埋め込み) か
+ * `/maps/embed?origin=mfe&pb=!1m3!2m1!1z<base64 の名前>!…` (検索の埋め込み) の形。
+ * 名前が読めないときは title の「おおよその位置（…付近）」を使う
  */
 export function mapPlacesOf(html: string): string[] {
   const places: string[] = [];
-  const re =
-    /<iframe[^>]+src="https:\/\/www\.google\.com\/maps\/embed\?pb=([^"]+)"/g;
-  for (const [, pb] of html.matchAll(re)) {
-    const encoded = pb.match(/!2z([^!]+)/)?.[1];
-    if (!encoded) continue;
-    let name: string;
-    try {
-      name = Buffer.from(decodeURIComponent(encoded), "base64url").toString(
-        "utf8",
-      );
-    } catch {
-      continue;
+  for (const [tag] of html.matchAll(/<iframe\b[^>]*>/g)) {
+    const src = tag.match(/\ssrc="([^"]+)"/)?.[1] ?? "";
+    if (!src.startsWith("https://www.google.com/maps/embed?")) continue;
+    // 場所の名前は !2z、検索の言葉は !1z
+    const pb = src.match(/[?&;]pb=([^"&]+)/)?.[1] ?? "";
+    const encoded = (pb.match(/!2z([^!]+)/) ?? pb.match(/!1z([^!]+)/))?.[1];
+    let name = "";
+    if (encoded) {
+      try {
+        // 埋め込みによって base64 と base64url のどちらもある (Buffer はどちらも読む)
+        name = Buffer.from(decodeURIComponent(encoded), "base64").toString(
+          "utf8",
+        );
+      } catch {
+        name = "";
+      }
+    }
+    if (!name || name.includes("�")) {
+      name = tag.match(/\stitle="おおよその位置（(.+?)付近）"/)?.[1] ?? "";
     }
     name = name.replace(/^〒?\s*\d{3}-?\d{4}\s*/, "").replace(/\s+/g, "");
     // 壊れた base64 は置換文字になる。そういう名前は使わない

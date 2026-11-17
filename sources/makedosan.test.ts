@@ -29,6 +29,24 @@ describe("mapPlacesOf", () => {
     ]);
   });
 
+  test("検索の埋め込み (origin=mfe、!1z) からも読む", () => {
+    expect(mapPlacesOf(post(3597).content.rendered)).toEqual([
+      "三重県名張市下小波田",
+    ]);
+  });
+
+  test("pb で読めなければ title の「おおよその位置（…付近）」", () => {
+    const html =
+      '<iframe title="おおよその位置（兵庫県赤穂市大津付近）" src="https://www.google.com/maps/embed?origin=mfe&#038;pb=!1m3!2m1!6i14"></iframe>';
+    expect(mapPlacesOf(html)).toEqual(["兵庫県赤穂市大津"]);
+  });
+
+  test("Google マップでない iframe は読まない", () => {
+    const html =
+      '<iframe title="おおよその位置（兵庫県赤穂市大津付近）" src="https://docs.google.com/forms/d/e/x/viewform"></iframe>';
+    expect(mapPlacesOf(html)).toEqual([]);
+  });
+
   test("地図が無ければ空", () => {
     expect(mapPlacesOf("<p>所在：岡山県井原市美星町</p>")).toEqual([]);
   });
@@ -38,6 +56,7 @@ describe("addressOf", () => {
   test("地図の方が細かければ地図の町名・字を使う", () => {
     expect(addressOf(post(329))).toBe("岡山県井原市美星町宇戸谷");
     expect(addressOf(post(3165))).toBe("埼玉県入間郡越生町龍ケ谷");
+    expect(addressOf(post(3597))).toBe("三重県名張市下小波田");
   });
 
   test("地図の方が粗ければ本文のまま", () => {
