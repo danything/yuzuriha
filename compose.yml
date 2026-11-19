@@ -5,7 +5,9 @@
 #   curl -sf https://raw.githubusercontent.com/danything/genkan/main/init.sh | sh -s
 services:
   yuzuriha:
-    build: .
+    build:
+      context: .
+      target: base
     # ポートは公開しない。genkan (caddy-docker-proxy) がホスト名で振り分ける。
     # 開くのは https://yuzuriha.localhost
     labels:
@@ -14,7 +16,7 @@ services:
     networks: [default, genkan]
     volumes:
       # 取得結果と map.json。消してもビルドし直せる
-      - ./data:/usr/src/app/data
+      - .:/usr/src/app
 
 networks:
   # genkan が作る共有ネットワーク
