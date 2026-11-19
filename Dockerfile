@@ -1,4 +1,4 @@
-FROM oven/bun:1.4.4-slim AS base
+FROM oven/bun:1.4.5-slim AS base
 WORKDIR /usr/src/app
 EXPOSE 5173
 ENV PORT=5173
@@ -16,7 +16,7 @@ RUN mkdir -p /out/data
 # 実行はシェルもパッケージマネージャも無い distroless の Bun。glibc・CA 証明書・
 # tzdata は入っているので、TZ=Asia/Tokyo もそのまま効く。uid は slim の bun ユーザーと
 # 同じ 1000:1000 のままにして、今の PVC をそのまま書けるようにする。
-FROM oven/bun:1.4.4-distroless
+FROM oven/bun:1.4.5-distroless
 WORKDIR /usr/src/app
 EXPOSE 5173
 ENV PORT=5173
