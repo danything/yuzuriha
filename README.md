@@ -117,7 +117,7 @@ curl -sf https://raw.githubusercontent.com/danything/genkan/main/init.sh | sh -s
 見た目は [danything/sonae](https://github.com/danything/sonae) にそろえてある（sonae は denpa の見た目の決まりに従う）。
 フレームワークは使わず、`index.html` と `src/main.ts`（素の TypeScript）と `assets/styles.css` のまま、CSS とマークアップだけを寄せた（持ち主の決定、2026-11-16。共通の部品にはしない）。
 
-- 土台は [Blades](https://github.com/anyblades/blades)（`@anyblades/blades`。Pico の CSS）。sonae の `src/app.css` が読むのと同じ部品を `build-web.ts` が `assets/blades.css` にまとめ、その上に `assets/styles.css` を重ねる。
+- 土台は [Blades](https://github.com/open-sveti/blades)（`@sveti/blades`。Pico の CSS）。sonae の `src/app.css` が読むのと同じ部品を `build-web.ts` が `assets/blades.css` にまとめ、その上に `assets/styles.css` を重ねる。
   `styles.css` の色・字・余白・角丸・動きのトークン（`--so-*`）は sonae の `app.css` を写したもの。sonae の値を変えたら、こちらも合わせる
 - テーマは端末に合わせる（明るい・暗い）。`index.html` の頭のスクリプトが描く前に `<html data-theme>` を付ける。選ぶ設定は置かない
 - **広い形（1000px から）:** 上に平らなヘッダー（左に名前、真ん中に検索の欄、右に「ほかのサイト」）。その下の左の残りの幅が地図、右が一覧の列（22rem。1600px から 26rem）。
