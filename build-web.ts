@@ -25,7 +25,7 @@ for (const [from, to] of copies) {
 
 // 見た目の土台は Blades (Pico)。sonae の src/app.css が読むのと同じ部品だけを 1 つにまとめて置く。
 // どれも `blades` の層 (@layer) に入っているので、assets/styles.css の規則が詳細度に関係なく勝つ
-const BLADES = "node_modules/@anyblades/blades/css/layered";
+const BLADES = "node_modules/@sveti/blades/css/layered";
 const bladesParts = [
   "variables",
   "layout/document",
